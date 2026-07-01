@@ -2,723 +2,685 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>jamkernelp2p — Núcleo P2P Soberano · Código Abierto</title>
-    <meta name="description" content="jamkernelp2p: El único kernel P2P en un solo archivo, cero dependencias, con servidor de señalización embebido. Cifrado militar, multi-plataforma, código abierto GPL v3." />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JAM Kernel · Ecosistema P2P + Motor Híbrido</title>
+    <meta name="description" content="JAM Kernel: Núcleo P2P soberano y Motor Híbrido (Node.js + Rust) para IA descentralizada, sistemas distribuidos y edge computing." />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚛️</text></svg>" />
-
+    
     <style>
-        :root {
-            --bg-principal: #0a0f1d;
-            --bg-tarjetas: #131c31;
-            --cyber-cyan: #00f2fe;
-            --cyber-purple: #9b51e0;
-            --texto-blanco: #ffffff;
-            --texto-mutado: #8fa0dd;
-            --borde-sutil: rgba(0, 242, 254, 0.15);
-            --bg-nav: rgba(10, 15, 29, 0.92);
-        }
-
+        /* === RESET Y FUENTES === */
         * {
-            box-sizing: border-box;
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
         }
-
         body {
-            background-color: var(--bg-principal);
-            color: var(--texto-blanco);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #0b0e14;
+            color: #e4e7ec;
             line-height: 1.6;
-            padding: 0;
+            padding: 2rem 1rem;
         }
-
-        .contenedor {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 40px 20px;
-        }
-
-        /* ===== NAVEGACIÓN ===== */
-        .nav-bar {
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            background: var(--bg-nav);
-            backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--borde-sutil);
-            padding: 12px 20px;
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: center;
-            gap: 12px 20px;
-        }
-
-        .nav-bar a {
-            color: var(--texto-mutado);
+        a {
+            color: #6fc3ff;
             text-decoration: none;
-            font-size: 0.85rem;
-            font-weight: 500;
-            transition: color 0.2s;
-            letter-spacing: 0.3px;
         }
-
-        .nav-bar a:hover {
-            color: var(--cyber-cyan);
-        }
-
-        .nav-bar .repo-link {
-            background: rgba(0, 242, 254, 0.12);
-            border: 1px solid var(--borde-sutil);
-            padding: 4px 14px;
-            border-radius: 20px;
-            color: var(--cyber-cyan);
-            font-weight: 600;
-        }
-
-        .nav-bar .repo-link:hover {
-            background: rgba(0, 242, 254, 0.2);
-        }
-
-        /* ===== HEADER ===== */
-        header {
-            text-align: center;
-            padding: 40px 0 30px 0;
-            border-bottom: 1px solid var(--borde-sutil);
-            margin-bottom: 40px;
-            position: relative;
-        }
-
-        header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 120px;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, var(--cyber-cyan), transparent);
-        }
-
-        h1 {
-            font-size: 2.5rem;
-            font-weight: 800;
-            letter-spacing: -1px;
-            background: linear-gradient(135deg, var(--cyber-cyan), var(--cyber-purple));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 6px;
-        }
-
-        .subtitulo {
-            font-size: 1rem;
-            color: var(--texto-mutado);
-            letter-spacing: 1px;
-        }
-
-        .badge-group {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 8px;
-            margin-top: 10px;
-        }
-
-        .badge {
-            display: inline-block;
-            background: rgba(0, 242, 254, 0.08);
-            border: 1px solid var(--borde-sutil);
-            color: var(--cyber-cyan);
-            padding: 3px 14px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-family: monospace;
-        }
-
-        .badge-license {
-            background: rgba(155, 81, 224, 0.15);
-            border-color: var(--cyber-purple);
-            color: #d6b4fc;
-        }
-
-        /* ===== BOTÓN DESCARGA ===== */
-        .descarga-box {
-            text-align: center;
-            margin: 30px 0 20px 0;
-            padding: 24px;
-            background: rgba(0, 242, 254, 0.04);
-            border-radius: 12px;
-            border: 1px dashed var(--borde-sutil);
-        }
-
-        .boton-descarga {
-            display: inline-block;
-            background: linear-gradient(90deg, var(--cyber-cyan), var(--cyber-purple));
-            color: var(--bg-principal);
-            font-weight: 700;
-            text-decoration: none;
-            padding: 14px 36px;
-            border-radius: 8px;
-            font-size: 1.1rem;
-            transition: opacity 0.2s, transform 0.15s;
-            box-shadow: 0 4px 20px rgba(0, 242, 254, 0.25);
-        }
-
-        .boton-descarga:hover {
-            opacity: 0.9;
-            transform: scale(1.02);
-        }
-
-        .boton-descarga .small {
-            display: block;
-            font-size: 0.7rem;
-            font-weight: 400;
-            opacity: 0.8;
-            margin-top: 4px;
-        }
-
-        /* ===== SECCIONES ===== */
-        section {
-            margin-bottom: 40px;
-            scroll-margin-top: 80px;
-        }
-
-        h2 {
-            font-size: 1.5rem;
-            color: var(--cyber-cyan);
-            margin-bottom: 15px;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            padding-bottom: 6px;
-        }
-
-        p {
-            color: var(--texto-mutado);
-            font-size: 1.05rem;
-            margin-bottom: 16px;
-            text-align: justify;
-        }
-
-        .destacado {
-            background: rgba(0, 242, 254, 0.03);
-            border-left: 3px solid var(--cyber-cyan);
-            padding: 16px 20px;
-            border-radius: 0 6px 6px 0;
-            margin-bottom: 20px;
-            font-style: italic;
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 16px;
-            margin-top: 20px;
-        }
-
-        @media (min-width: 768px) {
-            .grid {
-                grid-template-columns: 1fr 1fr;
-            }
-            .full-width {
-                grid-column: span 2;
-            }
-        }
-
-        .tarjeta {
-            background-color: var(--bg-tarjetas);
-            border: 1px solid rgba(255,255,255,0.05);
-            padding: 20px;
-            border-radius: 8px;
-            transition: border-color 0.2s;
-        }
-
-        .tarjeta:hover {
-            border-color: var(--borde-sutil);
-        }
-
-        .tarjeta h3 {
-            color: var(--texto-blanco);
-            font-size: 1.1rem;
-            margin-bottom: 10px;
-        }
-
-        .tarjeta ul {
-            list-style-type: none;
-            color: var(--texto-mutado);
-        }
-
-        .tarjeta ul li {
-            margin-bottom: 8px;
-            padding-left: 14px;
-            position: relative;
-        }
-
-        .tarjeta ul li::before {
-            content: '•';
-            color: var(--cyber-cyan);
-            position: absolute;
-            left: 0;
-            font-weight: bold;
-        }
-
-        pre {
-            background-color: #050811;
-            border: 1px solid rgba(255,255,255,0.08);
-            padding: 16px;
-            border-radius: 6px;
-            overflow-x: auto;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 0.85rem;
-            color: #a6accd;
-            margin: 16px 0;
-        }
-
-        .keyword { color: #c792ea; }
-        .function { color: #82aaff; }
-        .string { color: #c3e88d; }
-        .comment { color: #546e7a; font-style: italic; }
-
-        /* ===== CONTRIBUCIONES ===== */
-        .contribucion-box {
-            background: rgba(19, 28, 49, 0.6);
-            border: 1px dashed var(--cyber-cyan);
-            padding: 30px;
-            border-radius: 10px;
-            text-align: center;
-        }
-
-        .email-link {
-            display: inline-block;
-            margin-top: 12px;
-            background: linear-gradient(90deg, var(--cyber-cyan), var(--cyber-purple));
-            color: var(--bg-principal);
-            font-weight: bold;
-            text-decoration: none;
-            padding: 10px 28px;
-            border-radius: 6px;
-            font-size: 1rem;
-            transition: opacity 0.2s;
-        }
-
-        .email-link:hover {
-            opacity: 0.85;
-        }
-
-        .contacto-grid {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 16px 30px;
-            margin-top: 16px;
-        }
-
-        .contacto-item {
-            color: var(--texto-mutado);
-            font-size: 0.95rem;
-        }
-
-        .contacto-item a {
-            color: var(--cyber-cyan);
-            text-decoration: none;
-            border-bottom: 1px dotted var(--borde-sutil);
-        }
-
-        .contacto-item a:hover {
-            color: var(--texto-blanco);
-        }
-
-        .repo-destacado {
-            text-align: center;
-            margin-top: 20px;
-            padding: 16px;
-            background: rgba(0, 242, 254, 0.05);
-            border-radius: 8px;
-            border: 1px solid var(--borde-sutil);
-        }
-
-        .repo-destacado a {
-            color: var(--cyber-cyan);
-            font-size: 1.1rem;
-            font-weight: 600;
-            text-decoration: none;
-            word-break: break-all;
-        }
-
-        .repo-destacado a:hover {
+        a:hover {
             text-decoration: underline;
         }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
 
-        /* ===== FOOTER ===== */
-        footer {
+        /* === ENCABEZADO === */
+        .hero {
             text-align: center;
-            padding: 30px 0 10px 0;
-            border-top: 1px solid rgba(255,255,255,0.04);
-            margin-top: 40px;
+            padding: 3rem 0 2rem 0;
+            border-bottom: 1px solid #2a2f3a;
         }
-
-        footer .licencia {
-            color: #4b587c;
-            font-size: 0.8rem;
+        .hero h1 {
+            font-size: 3.2rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #a78bfa, #6fc3ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
-
-        footer .creditos {
-            color: #3d4a6e;
-            font-size: 0.75rem;
-            margin-top: 4px;
+        .hero .sub {
+            font-size: 1.3rem;
+            color: #9aa4b8;
+            margin-top: 0.4rem;
         }
-
-        footer .dedicatoria {
-            color: #2d3a5a;
-            font-size: 0.7rem;
-            margin-top: 2px;
-        }
-
-        footer .footer-links {
+        .hero .badges {
+            margin-top: 1rem;
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
-            gap: 16px;
-            margin-bottom: 12px;
+            gap: 0.6rem 1.2rem;
+            font-size: 0.95rem;
+        }
+        .hero .badges span {
+            background: #1e2430;
+            padding: 0.25rem 0.9rem;
+            border-radius: 30px;
+            border: 1px solid #2f3645;
+            color: #c8d0dc;
+        }
+        .hero .dedication {
+            margin-top: 1.8rem;
+            font-style: italic;
+            color: #8892a8;
+            border-top: 1px solid #232a36;
+            padding-top: 1.8rem;
+            font-size: 1rem;
+        }
+        .hero .dedication strong {
+            color: #d4dce8;
         }
 
-        footer .footer-links a {
-            color: #4b587c;
-            text-decoration: none;
-            font-size: 0.8rem;
+        /* === TARJETAS Y SECCIONES === */
+        .section {
+            margin: 3.5rem 0;
+        }
+        .section h2 {
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 1.2rem;
+            letter-spacing: -0.01em;
+            border-left: 4px solid #6fc3ff;
+            padding-left: 1rem;
+        }
+        .section h3 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin: 1.8rem 0 0.8rem 0;
+            color: #d4dce8;
+        }
+        .section p {
+            color: #b0bcca;
+            margin-bottom: 1rem;
+        }
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+        .card {
+            background: #131a24;
+            border-radius: 16px;
+            padding: 1.8rem 1.8rem 2rem;
+            border: 1px solid #25303e;
+            transition: border-color 0.2s;
+        }
+        .card:hover {
+            border-color: #3a4a60;
+        }
+        .card h3 {
+            margin-top: 0;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+        .card ul {
+            list-style: none;
+            margin-top: 0.8rem;
+        }
+        .card ul li {
+            padding: 0.25rem 0;
+            color: #b0bcca;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+        .card ul li::before {
+            content: "▹";
+            color: #6fc3ff;
+            font-size: 1.1rem;
+        }
+        .tag {
+            display: inline-block;
+            background: #1e2a3a;
+            padding: 0.15rem 0.8rem;
+            border-radius: 30px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #9aaec9;
+            letter-spacing: 0.02em;
+            border: 1px solid #2f3d52;
+            margin-right: 0.4rem;
+        }
+        .tag.green {
+            border-color: #3a8b6a;
+            color: #7bc4a4;
+        }
+        .tag.blue {
+            border-color: #3a6b9e;
+            color: #7bb0d4;
+        }
+        .tag.purple {
+            border-color: #6b4f9e;
+            color: #b490d4;
+        }
+        .tag.gold {
+            border-color: #b8860b;
+            color: #d4a84a;
         }
 
-        footer .footer-links a:hover {
-            color: var(--cyber-cyan);
+        /* === TABLA COMPARATIVA === */
+        .table-wrap {
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            background: #111a24;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 0.8rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid #25303e;
+        }
+        th {
+            background: #1a2432;
+            color: #c8d0dc;
+            font-weight: 600;
+        }
+        td {
+            color: #b0bcca;
+        }
+        td:first-child {
+            font-weight: 500;
+            color: #d4dce8;
+        }
+        .check {
+            color: #6fc3ff;
+            font-weight: 700;
+        }
+        .cross {
+            color: #7a7f8a;
+        }
+
+        /* === HOJA DE RUTA === */
+        .roadmap {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .roadmap-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 1.2rem;
+            background: #111a24;
+            padding: 1.2rem 1.5rem;
+            border-radius: 12px;
+            border-left: 4px solid #2f3d52;
+        }
+        .roadmap-item .version {
+            font-weight: 700;
+            color: #6fc3ff;
+            min-width: 5.5rem;
+            font-size: 0.95rem;
+        }
+        .roadmap-item .desc {
+            color: #b0bcca;
+        }
+        .roadmap-item .desc strong {
+            color: #d4dce8;
+        }
+        .roadmap-item.done {
+            border-left-color: #3a8b6a;
+        }
+        .roadmap-item.done .version {
+            color: #7bc4a4;
+        }
+        .roadmap-item.wip {
+            border-left-color: #d4a04a;
+        }
+        .roadmap-item.wip .version {
+            color: #e8c46a;
+        }
+        .roadmap-item.future {
+            border-left-color: #4a6a9e;
+        }
+        .roadmap-item.future .version {
+            color: #7bb0d4;
+        }
+
+        /* === EVOLUCIÓN CONSTANTE (NUEVA SECCIÓN) === */
+        .evolution {
+            background: #111a24;
+            border-radius: 16px;
+            padding: 2rem 2.2rem;
+            border: 1px solid #2a3a4a;
+            margin: 2rem 0;
+            text-align: center;
+        }
+        .evolution .emoji-big {
+            font-size: 2.5rem;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        .evolution .title {
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: #d4dce8;
+            margin-bottom: 0.8rem;
+        }
+        .evolution .desc {
+            color: #b0bcca;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        .evolution .highlight {
+            color: #6fc3ff;
+            font-weight: 500;
+        }
+
+        /* === FOOTER === */
+        .footer {
+            margin-top: 4rem;
+            border-top: 1px solid #232a36;
+            padding-top: 2rem;
+            text-align: center;
+            color: #6a7a90;
+            font-size: 0.9rem;
+        }
+        .footer a {
+            color: #8aa8c8;
+        }
+
+        /* === RESPONSIVE === */
+        @media (max-width: 720px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+            .hero h1 {
+                font-size: 2.2rem;
+            }
+            .hero .sub {
+                font-size: 1rem;
+            }
+            .roadmap-item {
+                flex-direction: column;
+                gap: 0.2rem;
+            }
+            .evolution {
+                padding: 1.5rem 1rem;
+            }
         }
     </style>
 </head>
 <body>
 
-    <!-- ========================================================== -->
-    <!-- NAVEGACIÓN -->
-    <!-- ========================================================== -->
-    <nav class="nav-bar">
-        <a href="#inicio">Inicio</a>
-        <a href="#features">Funcionalidades</a>
-        <a href="#uso">Uso</a>
-        <a href="#comparativa">Comparativa</a>
-        <a href="#roadmap">Hoja de Ruta</a>
-        <a href="#contribuir">Contribuir</a>
-        <a href="https://github.com/jamkernel/jamkernelp2p" target="_blank" class="repo-link">
-            🐙 GitHub
-        </a>
-    </nav>
+<div class="container">
 
-    <div class="contenedor">
+    <!-- ============================================================ -->
+    <!-- HERO / ENCABEZADO                                            -->
+    <!-- ============================================================ -->
+    <header class="hero">
+        <h1>⚛️ JAM Kernel</h1>
+        <div class="sub">Ecosistema P2P · Motor Híbrido Node.js + Rust</div>
+        <div class="badges">
+            <span>📦 Núcleo 0 dependencias</span>
+            <span>🦀 Motor Rust de alto rendimiento</span>
+            <span>🌐 4 plataformas</span>
+            <span>🔐 Cifrado militar</span>
+            <span>🔄 En evolución constante</span>
+        </div>
+        <div class="dedication">
+            ❤️ Dedicado a <strong>José Alejandro Martínez</strong> — mi motor, mi orgullo
+        </div>
+    </header>
 
-        <!-- ========================================================== -->
-        <!-- HEADER -->
-        <!-- ========================================================== -->
-        <header id="inicio">
-            <h1>jamkernelp2p v1.2</h1>
-            <div class="subtitulo">Núcleo criptográfico P2P · Cero dependencias</div>
-            <div class="badge-group">
-                <span class="badge">⚛️ Single File</span>
-                <span class="badge">📦 Zero Dependencies</span>
-                <span class="badge">🌐 4 Plataformas</span>
-                <span class="badge badge-license">📜 GNU GPL v3</span>
+    <!-- ============================================================ -->
+    <!-- 1. EL ECOSISTEMA                                             -->
+    <!-- ============================================================ -->
+    <section class="section">
+        <h2>🌌 El Ecosistema JAM</h2>
+        <p>
+            JAM Kernel no es un solo proyecto, sino una <strong>familia de herramientas</strong> que comparten
+            la misma filosofía: <strong>soberanía digital, ligereza extrema y control total</strong>.
+            Desde la comunicación P2P más básica hasta agentes de IA en el borde, el ecosistema JAM
+            cubre todo el espectro de la computación descentralizada.
+        </p>
+
+        <div class="grid-2">
+            <!-- TARJETA 1: NÚCLEO P2P -->
+            <div class="card">
+                <h3>🏛️ Núcleo P2P</h3>
+                <div style="margin-bottom: 0.6rem;">
+                    <span class="tag green">v1.2</span>
+                    <span class="tag">JavaScript</span>
+                    <span class="tag">0 deps</span>
+                </div>
+                <p style="color:#b0bcca; font-size:0.95rem;">
+                    Un solo archivo JavaScript para crear redes mesh cifradas sin servidores.
+                    Cero dependencias, cero configuraciones, cero complejidad.
+                </p>
+                <ul>
+                    <li>✅ 1 archivo · 0 dependencias</li>
+                    <li>✅ 4 plataformas (Web/Node/Deno/Bun)</li>
+                    <li>✅ AES‑256‑GCM · PBKDF2</li>
+                    <li>✅ Anti‑DoS · Purga forense de claves</li>
+                </ul>
+                <div style="margin-top: 1rem;">
+                    <a href="https://github.com/jamkernel/jamkernelp2p" target="_blank">→ Ver repositorio</a>
+                </div>
             </div>
-        </header>
 
-        <!-- ========================================================== -->
-        <!-- BOTÓN DE DESCARGA -->
-        <!-- ========================================================== -->
-        <div class="descarga-box">
-            <a href="https://github.com/jamkernel/jamkernelp2p/archive/refs/heads/main.zip" class="boton-descarga">
-                ⬇️ Descargar jamkernelp2p v1.2
-                <span class="small">~3,500 líneas · Un solo archivo · Código abierto</span>
-            </a>
-            <p style="text-align: center; font-size: 0.85rem; margin-top: 12px; color: #4b587c;">
-                También disponible en:
-                <a href="https://github.com/jamkernel/jamkernelp2p" style="color: var(--cyber-cyan); text-decoration: none;">
-                    GitHub
-                </a>
-                · npm (próximamente)
+            <!-- TARJETA 2: MOTOR HÍBRIDO -->
+            <div class="card">
+                <h3>🚀 Motor Híbrido</h3>
+                <div style="margin-bottom: 0.6rem;">
+                    <span class="tag purple">v2.0 (en desarrollo)</span>
+                    <span class="tag">Node.js + Rust</span>
+                    <span class="tag">IA · Scheduler</span>
+                </div>
+                <p style="color:#b0bcca; font-size:0.95rem;">
+                    La evolución del núcleo P2P: combina la flexibilidad de Node.js con el
+                    rendimiento de Rust para ejecutar agentes de IA, tareas programadas y
+                    lógica de negocio en el borde.
+                </p>
+                <ul>
+                    <li>✅ Agentes IA en Rust</li>
+                    <li>✅ Scheduler con cron</li>
+                    <li>✅ Tools nativas (funciones en Rust)</li>
+                    <li>✅ Bridge Node.js ↔ Rust en tiempo real</li>
+                </ul>
+                <div style="margin-top: 1rem;">
+                    <span style="color:#6a7a90;">🔜 Próximamente — <a href="#roadmap">ver hoja de ruta</a></span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 2. NÚCLEO P2P (DETALLE)                                     -->
+    <!-- ============================================================ -->
+    <section class="section">
+        <h2>🔐 Núcleo P2P · Funcionalidades</h2>
+        <p>
+            El núcleo <strong>jamkernelp2p</strong> es la base de todo el ecosistema. Está diseñado
+            para ser <strong>ultraligero, portable y fácil de integrar</strong> en cualquier proyecto
+            que requiera comunicación descentralizada.
+        </p>
+        <div class="grid-2">
+            <div class="card">
+                <h3>🔐 Cifrado Militar</h3>
+                <ul>
+                    <li>AES‑256‑GCM con autenticación</li>
+                    <li>Derivación PBKDF2 (60.000 iteraciones)</li>
+                    <li>Sal dinámica por sala</li>
+                    <li>Identidad ECDSA P‑256 nativa</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>🛡️ Seguridad Integrada</h3>
+                <ul>
+                    <li>Anti‑DoS por rate limiting (12 msg/seg)</li>
+                    <li>Lista negra automática</li>
+                    <li>Sanitización de entradas</li>
+                    <li>Blacklist de peers maliciosos</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>🧠 Purga de Memoria</h3>
+                <ul>
+                    <li>Eliminación forense de claves en RAM</li>
+                    <li>Garbage Collection forzado</li>
+                    <li>Nullificación de referencias</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>💾 Almacenamiento Local</h3>
+                <ul>
+                    <li>IndexedDB con mutex antibloqueo</li>
+                    <li>Backoff exponencial en fallos</li>
+                    <li>Límite de cola (1000 items)</li>
+                </ul>
+            </div>
+        </div>
+        <div style="text-align: right; margin-top: 1rem;">
+            <a href="https://github.com/jamkernel/jamkernelp2p#readme" target="_blank">📖 Documentación completa del núcleo</a>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 3. MOTOR HÍBRIDO (DETALLE)                                  -->
+    <!-- ============================================================ -->
+    <section class="section">
+        <h2>🚀 Motor Híbrido · Node.js + Rust</h2>
+        <p>
+            El motor híbrido es la <strong>evolución natural</strong> del núcleo P2P. Añade una capa de alto
+            rendimiento en Rust para tareas que requieren <strong>baja latencia, acceso a hardware y
+            ejecución paralela</strong>, manteniendo la flexibilidad de Node.js para la orquestación.
+        </p>
+
+        <div class="grid-2">
+            <div class="card">
+                <h3>🧠 Agentes IA Autónomos</h3>
+                <ul>
+                    <li>Ejecuta agentes de IA directamente en el dispositivo</li>
+                    <li>Toma decisiones en milisegundos sin depender de la nube</li>
+                    <li>Ideal para asistentes personales, trading bots y monitoreo</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>⏰ Scheduler / Cron</h3>
+                <ul>
+                    <li>Define tareas con expresiones cron</li>
+                    <li>Ejecuta funciones en Rust de forma automatizada</li>
+                    <li>Perfecto para mantenimiento, reportes y procesos batch</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>🔧 Tools Nativas</h3>
+                <ul>
+                    <li>Registra funciones en Rust como herramientas</li>
+                    <li>Llámalas desde Node.js o desde otros agentes</li>
+                    <li>Extiende el sistema sin reiniciar</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>🧩 Bridge Node.js ↔ Rust</h3>
+                <ul>
+                    <li>Comunicación bidireccional en tiempo real (WebSocket)</li>
+                    <li>Compartir memoria y estado entre ambos motores</li>
+                    <li>Lo mejor de ambos mundos: flexibilidad + rendimiento</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 4. EVOLUCIÓN CONSTANTE (NUEVA SECCIÓN)                      -->
+    <!-- ============================================================ -->
+    <section class="section">
+        <div class="evolution">
+            <span class="emoji-big">🔄</span>
+            <div class="title">Evolución Constante</div>
+            <p class="desc">
+                JAM Kernel no es un proyecto estático. Es un <strong>organismo vivo</strong> que
+                crece, mejora y se adapta gracias al trabajo continuo de su
+                <span class="highlight">creador y mantenedor</span>.
+                Cada nueva versión incorpora aprendizajes, optimizaciones y nuevas capacidades
+                para mantener el ecosistema a la vanguardia de la computación descentralizada.
+            </p>
+            <p class="desc" style="margin-top: 0.5rem;">
+                <span class="highlight">Félix Martínez</span> — autor y mantenedor activo —
+                sigue desarrollando el proyecto con la misma pasión que lo inició,
+                asegurando que JAM Kernel sea siempre <strong>más ligero, más seguro y más potente</strong>.
             </p>
         </div>
+    </section>
 
-        <!-- ========================================================== -->
-        <!-- EL PARADIGMA -->
-        <!-- ========================================================== -->
-        <section>
-            <h2>🌌 El Paradigma</h2>
-            <div class="destacado">
-                "Una nueva forma de entender la comunicación descentralizada: sin servidores, sin intermediarios, con control total del usuario sobre sus datos."
-            </div>
-            <p>
-                jamkernelp2p es una alternativa tecnológica que permite comunicación entre pares de forma cifrada y sin infraestructura centralizada.
-                Está diseñado para ser ligero, portable y fácil de integrar en cualquier proyecto que requiera soberanía digital.
-            </p>
-            <p>
-                <strong>Un solo archivo. Cero dependencias. Sin npm install. Sin configuraciones.</strong>
-            </p>
-        </section>
+    <!-- ============================================================ -->
+    <!-- 5. COMPARATIVA CON EL ECOSISTEMA                           -->
+    <!-- ============================================================ -->
+    <section class="section">
+        <h2>📊 JAM Kernel vs el Ecosistema</h2>
+        <p>
+            Comparativa con las soluciones más conocidas en sus respectivas categorías.
+        </p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Característica</th>
+                        <th>Núcleo P2P (jamkernelp2p)</th>
+                        <th>Motor Híbrido</th>
+                        <th>Express.js</th>
+                        <th>libp2p</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1 solo archivo</td>
+                        <td class="check">✅</td>
+                        <td class="cross">❌</td>
+                        <td class="cross">❌</td>
+                        <td class="cross">❌</td>
+                    </tr>
+                    <tr>
+                        <td>Cero dependencias</td>
+                        <td class="check">✅</td>
+                        <td class="check">✅ Mínimas</td>
+                        <td class="cross">❌ 30+</td>
+                        <td class="cross">❌ 50+</td>
+                    </tr>
+                    <tr>
+                        <td>P2P Nativo</td>
+                        <td class="check">✅</td>
+                        <td class="check">✅</td>
+                        <td class="cross">❌</td>
+                        <td class="check">✅</td>
+                    </tr>
+                    <tr>
+                        <td>Agentes IA</td>
+                        <td class="cross">❌</td>
+                        <td class="check">✅</td>
+                        <td class="cross">❌</td>
+                        <td class="cross">❌</td>
+                    </tr>
+                    <tr>
+                        <td>Scheduler / Cron</td>
+                        <td class="cross">❌</td>
+                        <td class="check">✅</td>
+                        <td class="cross">❌</td>
+                        <td class="cross">❌</td>
+                    </tr>
+                    <tr>
+                        <td>Rendimiento (Rust)</td>
+                        <td class="cross">❌</td>
+                        <td class="check">✅</td>
+                        <td class="cross">❌</td>
+                        <td class="cross">❌</td>
+                    </tr>
+                    <tr>
+                        <td>Purga forense de claves</td>
+                        <td class="check">✅</td>
+                        <td class="check">✅</td>
+                        <td class="cross">❌</td>
+                        <td class="cross">❌</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p style="font-size:0.85rem; color:#6a7a90;">
+            🔬 Comparativa basada en la arquitectura y características documentadas de cada proyecto.
+        </p>
+    </section>
 
-        <!-- ========================================================== -->
-        <!-- FUNCIONALIDADES -->
-        <!-- ========================================================== -->
-        <section id="features">
-            <h2>⚡ Funcionalidades</h2>
+    <!-- ============================================================ -->
+    <!-- 6. HOJA DE RUTA                                             -->
+    <!-- ============================================================ -->
+    <section class="section" id="roadmap">
+        <h2>🗺️ Hoja de Ruta</h2>
+        <div class="roadmap">
 
-            <div class="grid">
-                <div class="tarjeta">
-                    <h3>🔐 Cifrado Militar</h3>
-                    <ul>
-                        <li>AES-256-GCM con autenticación</li>
-                        <li>Derivación PBKDF2 (60,000 iteraciones)</li>
-                        <li>Sal dinámica por sala</li>
-                    </ul>
-                </div>
-
-                <div class="tarjeta">
-                    <h3>🛡️ Seguridad Integrada</h3>
-                    <ul>
-                        <li>Anti-DoS por rate limiting (12 msg/seg)</li>
-                        <li>Lista negra automática</li>
-                        <li>Sanitización de entradas</li>
-                    </ul>
-                </div>
-
-                <div class="tarjeta">
-                    <h3>🧠 Purga de Memoria</h3>
-                    <ul>
-                        <li>Eliminación forense de claves en RAM</li>
-                        <li>Garbage Collection forzado</li>
-                        <li>Nullificación de referencias</li>
-                    </ul>
-                </div>
-
-                <div class="tarjeta">
-                    <h3>💾 Almacenamiento Local</h3>
-                    <ul>
-                        <li>IndexedDB con mutex antibloqueo</li>
-                        <li>Backoff exponencial en fallos</li>
-                        <li>Límite de cola (1000 items)</li>
-                    </ul>
-                </div>
-
-                <div class="tarjeta full-width">
-                    <h3>🌐 Multi-Entorno</h3>
-                    <p style="font-size: 0.95rem; margin-bottom: 0;">
-                        Navegadores (HTTPS) · Node.js · Deno · Bun · Auto-detección de plataforma
-                    </p>
-                </div>
-            </div>
-        </section>
-
-        <!-- ========================================================== -->
-        <!-- USO / CÓDIGO -->
-        <!-- ========================================================== -->
-        <section id="uso">
-            <h2>🚀 Uso</h2>
-            <pre>
-<span class="comment">// Instanciar</span>
-<span class="keyword">const</span> jam = <span class="keyword">new</span> <span class="function">JAMOmniKernel</span>();
-
-<span class="comment">// Iniciar sesión</span>
-<span class="keyword">await</span> jam.<span class="function">startSession</span>(<span class="string">'mi-sala'</span>, <span class="string">'mi-clave'</span>);
-
-<span class="comment">// Transmitir</span>
-<span class="keyword">await</span> jam.mesh.<span class="function">broadcast</span>({ mensaje: <span class="string">'Hola mundo P2P'</span> });
-
-<span class="comment">// Recibir mensajes</span>
-jam.events.<span class="function">on</span>(<span class="string">'peer:message'</span>, (data) => {
-    console.<span class="function">log</span>(data.peerId, data.message);
-});
-
-<span class="comment">// Cerrar sesión (purga forense)</span>
-<span class="keyword">await</span> jam.<span class="function">closeSession</span>();</pre>
-        </section>
-
-        <!-- ========================================================== -->
-        <!-- COMPARATIVA -->
-        <!-- ========================================================== -->
-        <section id="comparativa">
-            <h2>📊 jamkernelp2p vs el Ecosistema</h2>
-            <p style="font-size: 0.95rem; color: #6a7a9a; text-align: center;">
-                Comparativa con las soluciones más conocidas del ecosistema P2P.
-            </p>
-            <div style="overflow-x: auto; margin-top: 16px;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; color: #a6accd; min-width: 600px;">
-                    <thead>
-                        <tr style="border-bottom: 1px solid var(--borde-sutil);">
-                            <th style="text-align: left; padding: 8px 12px; color: var(--texto-blanco);">Característica</th>
-                            <th style="text-align: center; padding: 8px 12px; color: var(--cyber-cyan);">jamkernelp2p</th>
-                            <th style="text-align: center; padding: 8px 12px; color: #6a7a9a;">libp2p</th>
-                            <th style="text-align: center; padding: 8px 12px; color: #6a7a9a;">PeerJS</th>
-                            <th style="text-align: center; padding: 8px 12px; color: #6a7a9a;">simple-peer</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
-                            <td style="padding: 8px 12px;">1 solo archivo</td>
-                            <td style="text-align: center; color: #4caf50;">✅ Sí</td>
-                            <td style="text-align: center; color: #f44336;">❌ 100+</td>
-                            <td style="text-align: center; color: #f44336;">❌ 5+</td>
-                            <td style="text-align: center; color: #f44336;">❌ 3+</td>
-                        </tr>
-                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
-                            <td style="padding: 8px 12px;">Cero dependencias</td>
-                            <td style="text-align: center; color: #4caf50;">✅ Sí</td>
-                            <td style="text-align: center; color: #f44336;">❌ 50+</td>
-                            <td style="text-align: center; color: #f44336;">❌ 10+</td>
-                            <td style="text-align: center; color: #f44336;">❌ 5+</td>
-                        </tr>
-                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
-                            <td style="padding: 8px 12px;">Deno + Bun</td>
-                            <td style="text-align: center; color: #4caf50;">✅ Sí</td>
-                            <td style="text-align: center; color: #f44336;">❌ No</td>
-                            <td style="text-align: center; color: #f44336;">❌ No</td>
-                            <td style="text-align: center; color: #f44336;">❌ No</td>
-                        </tr>
-                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
-                            <td style="padding: 8px 12px;">Señalización embebida</td>
-                            <td style="text-align: center; color: #4caf50;">✅ Sí</td>
-                            <td style="text-align: center; color: #f44336;">❌ No</td>
-                            <td style="text-align: center; color: #f44336;">❌ No</td>
-                            <td style="text-align: center; color: #f44336;">❌ No</td>
-                        </tr>
-                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
-                            <td style="padding: 8px 12px;">Identidad ECDSA nativa</td>
-                            <td style="text-align: center; color: #4caf50;">✅ Sí</td>
-                            <td style="text-align: center; color: #ff9800;">⚠️ Opcional</td>
-                            <td style="text-align: center; color: #f44336;">❌ No</td>
-                            <td style="text-align: center; color: #f44336;">❌ No</td>
-                        </tr>
-                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
-                            <td style="padding: 8px 12px;">Rate limiting anti-DoS</td>
-                            <td style="text-align: center; color: #4caf50;">✅ Sí</td>
-                            <td style="text-align: center; color: #ff9800;">⚠️ Plugin</td>
-                            <td style="text-align: center; color: #f44336;">❌ No</td>
-                            <td style="text-align: center; color: #f44336;">❌ No</td>
-                        </tr>
-                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
-                            <td style="padding: 8px 12px;">Purga forense de claves</td>
-                            <td style="text-align: center; color: #4caf50;">✅ Sí</td>
-                            <td style="text-align: center; color: #f44336;">❌ No</td>
-                            <td style="text-align: center; color: #f44336;">❌ No</td>
-                            <td style="text-align: center; color: #f44336;">❌ No</td>
-                        </tr>
-                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
-                            <td style="padding: 8px 12px; font-weight: 600; color: var(--texto-blanco);">Puntuación Total</td>
-                            <td style="text-align: center; font-weight: 700; color: var(--cyber-cyan);">18/18</td>
-                            <td style="text-align: center; color: #ff9800;">9/18</td>
-                            <td style="text-align: center; color: #f44336;">4/18</td>
-                            <td style="text-align: center; color: #f44336;">4/18</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <p style="font-size: 0.8rem; color: #4b587c; text-align: center; margin-top: 12px;">
-                🔬 Investigación comparativa sobre 20+ proyectos P2P · Junio 2026
-            </p>
-        </section>
-
-        <!-- ========================================================== -->
-        <!-- HOJA DE RUTA -->
-        <!-- ========================================================== -->
-        <section id="roadmap">
-            <h2>🗺️ Hoja de Ruta</h2>
-            <div class="grid">
-                <div class="tarjeta">
-                    <h3>✅ v1.2 — Base de Producción</h3>
-                    <ul>
-                        <li>Cifrado AES-256-GCM + PBKDF2</li>
-                        <li>Anti-DoS integrado</li>
-                        <li>Purga forense de claves</li>
-                        <li>Multi-entorno (Web/Node/Deno/Bun)</li>
-                    </ul>
-                </div>
-                <div class="tarjeta">
-                    <h3>🚧 v2.0 — Testing y Documentación</h3>
-                    <ul>
-                        <li>Suite de tests automatizados</li>
-                        <li>Documentación API completa</li>
-                        <li>Benchmarks de rendimiento</li>
-                    </ul>
-                </div>
-                <div class="tarjeta">
-                    <h3>🔮 v3.0 — Escalabilidad</h3>
-                    <ul>
-                        <li>Cluster mode multi-CPU</li>
-                        <li>Relay externo configurable</li>
-                        <li>Métricas Prometheus</li>
-                    </ul>
-                </div>
-                <div class="tarjeta">
-                    <h3>🌟 v4.0 — Comunidad</h3>
-                    <ul>
-                        <li>DAO de desarrollo</li>
-                        <li>Programa de bugs bounty</li>
-                        <li>Traducciones a 10+ idiomas</li>
-                    </ul>
+            <div class="roadmap-item done">
+                <div class="version">✅ v1.2</div>
+                <div class="desc">
+                    <strong>Núcleo P2P — Lanzado</strong><br />
+                    Cifrado AES‑256‑GCM · PBKDF2 · Anti‑DoS · Purga forense de claves ·
+                    Multi‑entorno (Web/Node/Deno/Bun) ·
+                    <a href="https://github.com/jamkernel/jamkernelp2p" target="_blank">Ver repositorio</a>
                 </div>
             </div>
-        </section>
 
-        <!-- ========================================================== -->
-        <!-- CONTRIBUIR -->
-        <!-- ========================================================== -->
-        <section id="contribuir">
-            <h2>🤝 Contribuciones</h2>
-            <div class="contribucion-box">
-                <p style="text-align: center; font-size: 1rem;">
-                    jamkernelp2p es un proyecto abierto que acepta contribuciones de todo tipo:
-                </p>
-                <p style="text-align: center; font-size: 0.95rem;">
-                    <strong>Código</strong> · <strong>Documentación</strong> · <strong>Seguridad</strong> · <strong>Difusión</strong>
-                </p>
-                <p style="text-align: center; font-size: 0.95rem; margin-top: 10px;">
-                    Para propuestas, reportes o coordinación:
-                </p>
-
-                <!-- ========================================================== -->
-                <!-- CONTACTOS ACTUALIZADOS CON TELEGRAM -->
-                <!-- ========================================================== -->
-                <div class="contacto-grid">
-                    <span class="contacto-item">📩 <a href="mailto:jamkernelp2p@gmail.com">jamkernelp2p@gmail.com</a></span>
-                    <span class="contacto-item">🐙 <a href="https://github.com/jamkernel/jamkernelp2p" target="_blank">github.com/jamkernel/jamkernelp2p</a></span>
-                    <span class="contacto-item">✈️ <a href="https://t.me/jamkernelp2p" target="_blank">Telegram: @jamkernelp2p</a></span>
-                    <span class="contacto-item">📢 <a href="https://t.me/boost/jamkernelp2p_proyecto" target="_blank">Canal del Proyecto</a></span>
+            <div class="roadmap-item wip">
+                <div class="version">🚧 v2.0</div>
+                <div class="desc">
+                    <strong>Motor Híbrido — En desarrollo</strong><br />
+                    Bridge Node.js ↔ Rust · Agentes IA en Rust · Scheduler cron ·
+                    Tools nativas · Memoria persistente
                 </div>
+            </div>
 
-                <div class="repo-destacado">
-                    <p style="font-size: 0.9rem; color: var(--texto-mutado); margin-bottom: 4px;">
-                        📂 <strong>Repositorio Oficial:</strong>
-                    </p>
-                    <a href="https://github.com/jamkernel/jamkernelp2p" target="_blank">
-                        https://github.com/jamkernel/jamkernelp2p
-                    </a>
-                    <p style="font-size: 0.8rem; color: #4b587c; margin-top: 6px;">
-                        Explora el código, estudia la arquitectura, abre un issue o envía un pull request.
-                    </p>
+            <div class="roadmap-item future">
+                <div class="version">🔮 v3.0</div>
+                <div class="desc">
+                    <strong>Escalabilidad y Producción</strong><br />
+                    Cluster mode para agentes · NAT traversal completo (STUN/TURN) ·
+                    Integración con modelos de IA (ONNX, llama.cpp)
                 </div>
-
-                <a href="mailto:jamkernelp2p@gmail.com" class="email-link">📩 Contactar</a>
             </div>
-        </section>
 
-        <!-- ========================================================== -->
-        <!-- FOOTER -->
-        <!-- ========================================================== -->
-        <footer>
-            <div class="footer-links">
-                <a href="https://github.com/jamkernel/jamkernelp2p" target="_blank">GitHub</a>
-                <a href="mailto:jamkernelp2p@gmail.com">Contacto</a>
-                <a href="#roadmap">Hoja de Ruta</a>
-                <a href="#contribuir">Contribuir</a>
+            <div class="roadmap-item future">
+                <div class="version">🌟 v4.0</div>
+                <div class="desc">
+                    <strong>Ecosistema y Comunidad</strong><br />
+                    CLI para crear proyectos · Repositorio de agentes/plugins ·
+                    Plataforma de despliegue descentralizado
+                </div>
             </div>
-            <div class="licencia">jamkernelp2p v1.2 · GNU GPL v3 · Código abierto</div>
-            <div class="creditos">Félix Martínez — 2026</div>
-            <div class="dedicatoria">Dedicado a mi hijo, por ser la motivación</div>
-        </footer>
 
-    </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 7. CONTRIBUCIONES Y ENLACES                                 -->
+    <!-- ============================================================ -->
+    <section class="section">
+        <h2>🤝 Contribuciones</h2>
+        <p>
+            JAM Kernel es un proyecto abierto que acepta contribuciones de todo tipo:
+            <strong>código, documentación, seguridad y difusión</strong>.
+            Toda ayuda es bienvenida para construir un ecosistema más robusto y soberano.
+        </p>
+        <p>
+            📂 <strong>Repositorio oficial del núcleo P2P:</strong><br />
+            <a href="https://github.com/jamkernel/jamkernelp2p" target="_blank">github.com/jamkernel/jamkernelp2p</a>
+        </p>
+        <p>
+            📧 Contacto para propuestas o coordinación:<br />
+            <a href="mailto:jamkernelp2p@gmail.com">jamkernelp2p@gmail.com</a>
+        </p>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- FOOTER                                                       -->
+    <!-- ============================================================ -->
+    <footer class="footer">
+        <p>
+            Creado y mantenido por <strong>Félix Martínez</strong> · 2026<br />
+            Dedicado a <strong>José Alejandro Martínez</strong> — mi motor, mi orgullo ❤️
+        </p>
+        <p style="margin-top: 0.5rem; font-size:0.8rem;">
+            <a href="https://github.com/jamkernel/jamkernelp2p" target="_blank">GitHub</a> ·
+            <a href="https://jamkernel.github.io" target="_blank">Web</a> ·
+            <a href="mailto:jamkernelp2p@gmail.com">Contacto</a>
+        </p>
+    </footer>
+
+</div>
 
 </body>
 </html>
