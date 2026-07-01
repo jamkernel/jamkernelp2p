@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JAM Kernel · Ecosistema P2P + Motor Híbrido</title>
-    <meta name="description" content="JAM Kernel: Núcleo P2P soberano y Motor Híbrido (Node.js + Rust) para IA descentralizada, sistemas distribuidos y edge computing." />
+    <title>jamkernelp2p · Núcleo P2P Soberano</title>
+    <meta name="description" content="jamkernelp2p: Núcleo P2P soberano (v1.0) y Motor Híbrido (Node.js + Rust) para IA descentralizada, sistemas distribuidos y edge computing." />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚛️</text></svg>" />
-    
+
     <style>
         /* === RESET Y FUENTES === */
         * {
@@ -67,6 +67,11 @@
             border-radius: 30px;
             border: 1px solid #2f3645;
             color: #c8d0dc;
+        }
+        .hero .badges .contact-badge {
+            border-color: #4a6a9e;
+            color: #7bb0d4;
+            font-size: 0.8rem;
         }
         .hero .dedication {
             margin-top: 1.8rem;
@@ -253,7 +258,7 @@
             color: #7bb0d4;
         }
 
-        /* === EVOLUCIÓN CONSTANTE (NUEVA SECCIÓN) === */
+        /* === EVOLUCIÓN CONSTANTE === */
         .evolution {
             background: #111a24;
             border-radius: 16px;
@@ -283,6 +288,47 @@
             font-weight: 500;
         }
 
+        /* === CONTACTOS === */
+        .contact-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.2rem;
+            margin: 1.5rem 0;
+        }
+        .contact-card {
+            background: #131a24;
+            padding: 1.2rem 1.5rem;
+            border-radius: 12px;
+            border: 1px solid #25303e;
+            text-align: center;
+            transition: border-color 0.2s;
+        }
+        .contact-card:hover {
+            border-color: #6fc3ff;
+        }
+        .contact-card .icon {
+            font-size: 1.8rem;
+            display: block;
+            margin-bottom: 0.4rem;
+        }
+        .contact-card .label {
+            font-size: 0.7rem;
+            color: #6a7a90;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .contact-card .value {
+            font-size: 0.85rem;
+            color: #d4dce8;
+            word-break: break-all;
+        }
+        .contact-card .value a {
+            color: #6fc3ff;
+        }
+        .contact-card .value a:hover {
+            text-decoration: underline;
+        }
+
         /* === FOOTER === */
         .footer {
             margin-top: 4rem;
@@ -294,6 +340,20 @@
         }
         .footer a {
             color: #8aa8c8;
+        }
+        .footer .footer-links {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 1.2rem 2rem;
+            margin-bottom: 1rem;
+        }
+        .footer .footer-links a {
+            color: #6a7a90;
+            font-size: 0.85rem;
+        }
+        .footer .footer-links a:hover {
+            color: #6fc3ff;
         }
 
         /* === RESPONSIVE === */
@@ -314,6 +374,14 @@
             .evolution {
                 padding: 1.5rem 1rem;
             }
+            .contact-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        @media (max-width: 480px) {
+            .contact-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -325,14 +393,14 @@
     <!-- HERO / ENCABEZADO                                            -->
     <!-- ============================================================ -->
     <header class="hero">
-        <h1>⚛️ JAM Kernel</h1>
-        <div class="sub">Ecosistema P2P · Motor Híbrido Node.js + Rust</div>
+        <h1>⚛️ jamkernelp2p</h1>
+        <div class="sub">Núcleo P2P Soberano · v1.0</div>
         <div class="badges">
-            <span>📦 Núcleo 0 dependencias</span>
-            <span>🦀 Motor Rust de alto rendimiento</span>
+            <span>📦 0 dependencias</span>
             <span>🌐 4 plataformas</span>
             <span>🔐 Cifrado militar</span>
             <span>🔄 En evolución constante</span>
+            <span class="contact-badge">📢 @jamkernelp2p</span>
         </div>
         <div class="dedication">
             ❤️ Dedicado a <strong>José Alejandro Martínez</strong> — mi motor, mi orgullo
@@ -345,25 +413,20 @@
     <section class="section">
         <h2>🌌 El Ecosistema JAM</h2>
         <p>
-            JAM Kernel no es un solo proyecto, sino una <strong>familia de herramientas</strong> que comparten
-            la misma filosofía: <strong>soberanía digital, ligereza extrema y control total</strong>.
-            Desde la comunicación P2P más básica hasta agentes de IA en el borde, el ecosistema JAM
-            cubre todo el espectro de la computación descentralizada.
+            JAM Kernel es un ecosistema de herramientas que comparten la misma filosofía:
+            <strong>soberanía digital, ligereza extrema y control total</strong>.
         </p>
 
         <div class="grid-2">
-            <!-- TARJETA 1: NÚCLEO P2P -->
+            <!-- TARJETA 1: NÚCLEO P2P (v1.0) -->
             <div class="card">
-                <h3>🏛️ Núcleo P2P</h3>
+                <h3>🏛️ jamkernelp2p</h3>
                 <div style="margin-bottom: 0.6rem;">
-                    <span class="tag green">v1.2</span>
+                    <span class="tag green">v1.0</span>
                     <span class="tag">JavaScript</span>
                     <span class="tag">0 deps</span>
                 </div>
-                <p style="color:#b0bcca; font-size:0.95rem;">
-                    Un solo archivo JavaScript para crear redes mesh cifradas sin servidores.
-                    Cero dependencias, cero configuraciones, cero complejidad.
-                </p>
+                <p>El núcleo P2P actual. Un solo archivo, cero dependencias, comunicación cifrada.</p>
                 <ul>
                     <li>✅ 1 archivo · 0 dependencias</li>
                     <li>✅ 4 plataformas (Web/Node/Deno/Bun)</li>
@@ -375,7 +438,7 @@
                 </div>
             </div>
 
-            <!-- TARJETA 2: MOTOR HÍBRIDO -->
+            <!-- TARJETA 2: MOTOR HÍBRIDO (v2.0 - Futuro) -->
             <div class="card">
                 <h3>🚀 Motor Híbrido</h3>
                 <div style="margin-bottom: 0.6rem;">
@@ -383,16 +446,12 @@
                     <span class="tag">Node.js + Rust</span>
                     <span class="tag">IA · Scheduler</span>
                 </div>
-                <p style="color:#b0bcca; font-size:0.95rem;">
-                    La evolución del núcleo P2P: combina la flexibilidad de Node.js con el
-                    rendimiento de Rust para ejecutar agentes de IA, tareas programadas y
-                    lógica de negocio en el borde.
-                </p>
+                <p>La evolución del núcleo: flexibilidad de Node.js con rendimiento de Rust para agentes de IA y tareas programadas.</p>
                 <ul>
                     <li>✅ Agentes IA en Rust</li>
                     <li>✅ Scheduler con cron</li>
-                    <li>✅ Tools nativas (funciones en Rust)</li>
-                    <li>✅ Bridge Node.js ↔ Rust en tiempo real</li>
+                    <li>✅ Tools nativas</li>
+                    <li>✅ Bridge Node.js ↔ Rust</li>
                 </ul>
                 <div style="margin-top: 1rem;">
                     <span style="color:#6a7a90;">🔜 Próximamente — <a href="#roadmap">ver hoja de ruta</a></span>
@@ -405,7 +464,7 @@
     <!-- 2. NÚCLEO P2P (DETALLE)                                     -->
     <!-- ============================================================ -->
     <section class="section">
-        <h2>🔐 Núcleo P2P · Funcionalidades</h2>
+        <h2>🔐 Núcleo P2P · Funcionalidades (v1.0)</h2>
         <p>
             El núcleo <strong>jamkernelp2p</strong> es la base de todo el ecosistema. Está diseñado
             para ser <strong>ultraligero, portable y fácil de integrar</strong> en cualquier proyecto
@@ -456,7 +515,7 @@
     <!-- 3. MOTOR HÍBRIDO (DETALLE)                                  -->
     <!-- ============================================================ -->
     <section class="section">
-        <h2>🚀 Motor Híbrido · Node.js + Rust</h2>
+        <h2>🚀 Motor Híbrido · Node.js + Rust (v2.0 - En desarrollo)</h2>
         <p>
             El motor híbrido es la <strong>evolución natural</strong> del núcleo P2P. Añade una capa de alto
             rendimiento en Rust para tareas que requieren <strong>baja latencia, acceso a hardware y
@@ -500,23 +559,21 @@
     </section>
 
     <!-- ============================================================ -->
-    <!-- 4. EVOLUCIÓN CONSTANTE (NUEVA SECCIÓN)                      -->
+    <!-- 4. EVOLUCIÓN CONSTANTE                                      -->
     <!-- ============================================================ -->
     <section class="section">
         <div class="evolution">
             <span class="emoji-big">🔄</span>
             <div class="title">Evolución Constante</div>
             <p class="desc">
-                JAM Kernel no es un proyecto estático. Es un <strong>organismo vivo</strong> que
+                <strong>jamkernelp2p</strong> no es un proyecto estático. Es un <strong>organismo vivo</strong> que
                 crece, mejora y se adapta gracias al trabajo continuo de su
                 <span class="highlight">creador y mantenedor</span>.
-                Cada nueva versión incorpora aprendizajes, optimizaciones y nuevas capacidades
-                para mantener el ecosistema a la vanguardia de la computación descentralizada.
             </p>
             <p class="desc" style="margin-top: 0.5rem;">
                 <span class="highlight">Félix Martínez</span> — autor y mantenedor activo —
                 sigue desarrollando el proyecto con la misma pasión que lo inició,
-                asegurando que JAM Kernel sea siempre <strong>más ligero, más seguro y más potente</strong>.
+                asegurando que jamkernelp2p sea siempre <strong>más ligero, más seguro y más potente</strong>.
             </p>
         </div>
     </section>
@@ -525,68 +582,68 @@
     <!-- 5. COMPARATIVA CON EL ECOSISTEMA                           -->
     <!-- ============================================================ -->
     <section class="section">
-        <h2>📊 JAM Kernel vs el Ecosistema</h2>
+        <h2>📊 jamkernelp2p vs el Ecosistema</h2>
         <p>
-            Comparativa con las soluciones más conocidas en sus respectivas categorías.
+            Comparativa con las soluciones más conocidas en sus respectivas categorías (v1.0).
         </p>
         <div class="table-wrap">
             <table>
                 <thead>
                     <tr>
                         <th>Característica</th>
-                        <th>Núcleo P2P (jamkernelp2p)</th>
-                        <th>Motor Híbrido</th>
-                        <th>Express.js</th>
+                        <th>jamkernelp2p v1.0</th>
                         <th>libp2p</th>
+                        <th>PeerJS</th>
+                        <th>simple-peer</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
                         <td>1 solo archivo</td>
                         <td class="check">✅</td>
-                        <td class="cross">❌</td>
-                        <td class="cross">❌</td>
-                        <td class="cross">❌</td>
+                        <td class="cross">❌ 100+</td>
+                        <td class="cross">❌ 5+</td>
+                        <td class="cross">❌ 3+</td>
                     </tr>
                     <tr>
                         <td>Cero dependencias</td>
                         <td class="check">✅</td>
-                        <td class="check">✅ Mínimas</td>
-                        <td class="cross">❌ 30+</td>
                         <td class="cross">❌ 50+</td>
+                        <td class="cross">❌ 10+</td>
+                        <td class="cross">❌ 5+</td>
                     </tr>
                     <tr>
-                        <td>P2P Nativo</td>
-                        <td class="check">✅</td>
+                        <td>Deno + Bun</td>
                         <td class="check">✅</td>
                         <td class="cross">❌</td>
-                        <td class="check">✅</td>
-                    </tr>
-                    <tr>
-                        <td>Agentes IA</td>
-                        <td class="cross">❌</td>
-                        <td class="check">✅</td>
                         <td class="cross">❌</td>
                         <td class="cross">❌</td>
                     </tr>
                     <tr>
-                        <td>Scheduler / Cron</td>
-                        <td class="cross">❌</td>
+                        <td>Señalización embebida</td>
                         <td class="check">✅</td>
+                        <td class="cross">❌</td>
                         <td class="cross">❌</td>
                         <td class="cross">❌</td>
                     </tr>
                     <tr>
-                        <td>Rendimiento (Rust)</td>
-                        <td class="cross">❌</td>
+                        <td>Identidad ECDSA nativa</td>
                         <td class="check">✅</td>
+                        <td class="cross">⚠️ Opcional</td>
+                        <td class="cross">❌</td>
+                        <td class="cross">❌</td>
+                    </tr>
+                    <tr>
+                        <td>Rate limiting anti-DoS</td>
+                        <td class="check">✅</td>
+                        <td class="cross">⚠️ Plugin</td>
                         <td class="cross">❌</td>
                         <td class="cross">❌</td>
                     </tr>
                     <tr>
                         <td>Purga forense de claves</td>
                         <td class="check">✅</td>
-                        <td class="check">✅</td>
+                        <td class="cross">❌</td>
                         <td class="cross">❌</td>
                         <td class="cross">❌</td>
                     </tr>
@@ -606,7 +663,7 @@
         <div class="roadmap">
 
             <div class="roadmap-item done">
-                <div class="version">✅ v1.2</div>
+                <div class="version">✅ v1.0</div>
                 <div class="desc">
                     <strong>Núcleo P2P — Lanzado</strong><br />
                     Cifrado AES‑256‑GCM · PBKDF2 · Anti‑DoS · Purga forense de claves ·
@@ -646,37 +703,114 @@
     </section>
 
     <!-- ============================================================ -->
-    <!-- 7. CONTRIBUCIONES Y ENLACES                                 -->
+    <!-- 7. CONTACTOS Y CONTRIBUCIONES (ACTUALIZADO)                 -->
     <!-- ============================================================ -->
-    <section class="section">
-        <h2>🤝 Contribuciones</h2>
+    <section class="section" id="contacto">
+        <h2>🤝 Contribuciones y Contacto</h2>
         <p>
-            JAM Kernel es un proyecto abierto que acepta contribuciones de todo tipo:
+            jamkernelp2p es un proyecto abierto que acepta contribuciones de todo tipo:
             <strong>código, documentación, seguridad y difusión</strong>.
             Toda ayuda es bienvenida para construir un ecosistema más robusto y soberano.
         </p>
-        <p>
-            📂 <strong>Repositorio oficial del núcleo P2P:</strong><br />
-            <a href="https://github.com/jamkernel/jamkernelp2p" target="_blank">github.com/jamkernel/jamkernelp2p</a>
-        </p>
-        <p>
-            📧 Contacto para propuestas o coordinación:<br />
-            <a href="mailto:jamkernelp2p@gmail.com">jamkernelp2p@gmail.com</a>
-        </p>
+
+        <!-- ========================================================== -->
+        <!-- PUNTOS DE CONTACTO (TODOS LOS QUE TENÍAS)                  -->
+        <!-- ========================================================== -->
+        <div class="contact-grid">
+            <div class="contact-card">
+                <span class="icon">📩</span>
+                <div class="label">Correo Electrónico</div>
+                <div class="value">
+                    <a href="mailto:jamkernelp2p@gmail.com">jamkernelp2p@gmail.com</a>
+                </div>
+            </div>
+
+            <div class="contact-card">
+                <span class="icon">🐙</span>
+                <div class="label">GitHub</div>
+                <div class="value">
+                    <a href="https://github.com/jamkernel/jamkernelp2p" target="_blank">github.com/jamkernel/jamkernelp2p</a>
+                </div>
+            </div>
+
+            <div class="contact-card">
+                <span class="icon">✈️</span>
+                <div class="label">Telegram (Contacto)</div>
+                <div class="value">
+                    <a href="https://t.me/jamkernelp2p" target="_blank">@jamkernelp2p</a>
+                </div>
+            </div>
+
+            <div class="contact-card">
+                <span class="icon">📢</span>
+                <div class="label">Canal Telegram</div>
+                <div class="value">
+                    <a href="https://t.me/boost/jamkernelp2p_proyecto" target="_blank">Canal del Proyecto</a>
+                </div>
+            </div>
+
+            <div class="contact-card">
+                <span class="icon">🌐</span>
+                <div class="label">Sitio Web</div>
+                <div class="value">
+                    <a href="https://jamkernel.github.io" target="_blank">jamkernel.github.io</a>
+                </div>
+            </div>
+
+            <div class="contact-card">
+                <span class="icon">📄</span>
+                <div class="label">Documentación</div>
+                <div class="value">
+                    <a href="https://github.com/jamkernel/jamkernelp2p#readme" target="_blank">README.md</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================================== -->
+        <!-- REPOSITORIO DESTACADO                                      -->
+        <!-- ========================================================== -->
+        <div style="text-align: center; margin-top: 1.5rem; padding: 1.5rem; background: rgba(0, 242, 254, 0.05); border-radius: 12px; border: 1px solid #2a3a4a;">
+            <p style="font-size: 0.9rem; color: var(--texto-mutado); margin-bottom: 4px;">
+                📂 <strong>Repositorio Oficial:</strong>
+            </p>
+            <a href="https://github.com/jamkernel/jamkernelp2p" target="_blank" style="color: #6fc3ff; font-size: 1.1rem; font-weight: 600;">
+                https://github.com/jamkernel/jamkernelp2p
+            </a>
+            <p style="font-size: 0.85rem; color: #6a7a90; margin-top: 6px;">
+                Explora el código, estudia la arquitectura, abre un issue o envía un pull request.
+            </p>
+        </div>
+
+        <!-- ========================================================== -->
+        <!-- BOTÓN DE CONTACTO DIRECTO                                 -->
+        <!-- ========================================================== -->
+        <div style="text-align: center; margin-top: 1.5rem;">
+            <a href="mailto:jamkernelp2p@gmail.com" style="display: inline-block; background: linear-gradient(90deg, #6fc3ff, #a78bfa); color: #0b0e14; font-weight: 700; padding: 12px 32px; border-radius: 8px; text-decoration: none; transition: opacity 0.2s;">
+                📩 Contactar ahora
+            </a>
+        </div>
     </section>
 
     <!-- ============================================================ -->
     <!-- FOOTER                                                       -->
     <!-- ============================================================ -->
     <footer class="footer">
-        <p>
-            Creado y mantenido por <strong>Félix Martínez</strong> · 2026<br />
-            Dedicado a <strong>José Alejandro Martínez</strong> — mi motor, mi orgullo ❤️
-        </p>
-        <p style="margin-top: 0.5rem; font-size:0.8rem;">
-            <a href="https://github.com/jamkernel/jamkernelp2p" target="_blank">GitHub</a> ·
-            <a href="https://jamkernel.github.io" target="_blank">Web</a> ·
+        <div class="footer-links">
+            <a href="https://github.com/jamkernel/jamkernelp2p" target="_blank">GitHub</a>
             <a href="mailto:jamkernelp2p@gmail.com">Contacto</a>
+            <a href="#roadmap">Hoja de Ruta</a>
+            <a href="#contacto">Contribuir</a>
+            <a href="https://t.me/jamkernelp2p" target="_blank">Telegram</a>
+            <a href="https://t.me/boost/jamkernelp2p_proyecto" target="_blank">Canal</a>
+        </div>
+        <p style="color: #6a7a90; font-size: 0.85rem;">
+            Creado y mantenido por <strong style="color: #d4dce8;">Félix Martínez</strong> · 2026
+        </p>
+        <p style="color: #4b587c; font-size: 0.75rem;">
+            Dedicado a <strong style="color: #6a7a90;">José Alejandro Martínez</strong> — mi motor, mi orgullo ❤️
+        </p>
+        <p style="color: #3d4a6e; font-size: 0.7rem; margin-top: 0.3rem;">
+            jamkernelp2p v1.0 · GNU GPL v3 · Código abierto
         </p>
     </footer>
 
