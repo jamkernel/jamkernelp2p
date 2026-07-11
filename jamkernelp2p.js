@@ -799,26 +799,40 @@ class _WebSocketClientNode {
             if (responseData.includes('\r\n\r\n')) {
                 const lines = responseData.split('\r\n');
                 const statusLine = lines[0];
-                if (statusLine.includes('101')) {
-                    this.readyState = 1; // OPEN
-                    this._socket = socket;
-                    // Remove HTTP response from buffer, keep any trailing WS data
-                    const headerEnd = responseData.indexOf('\r\n\r\n') + 4;
-                    const leftover = responseData.slice(headerEnd);
-                    this._buffer = Buffer.from(leftover, 'binary');
-                    if (this._onOpen) this._onOpen();
-                    // Process any leftover data as WS frames
-                    if (leftover.length > 0) this._processBuffer();
-                    // Now attach data handler for WS frames only
-                    socket.removeAllListeners('data');
-                    socket.on('data', (d) => {
-                        this._buffer = Buffer.concat([this._buffer, d]);
-                        this._processBuffer();
-                    });
-                } else {
+                if (!statusLine.includes('101')) {
                     if (this._onError) this._onError(new Error('WebSocket handshake failed: ' + statusLine));
                     socket.destroy();
+                    return;
                 }
+                // Validate Sec-WebSocket-Accept
+                let acceptHeader = null;
+                for (let i = 1; i < lines.length; i++) {
+                    const lower = lines[i].toLowerCase();
+                    if (lower.startsWith('sec-websocket-accept:')) {
+                        acceptHeader = lines[i].split(':')[1].trim();
+                        break;
+                    }
+                }
+                if (!acceptHeader || acceptHeader !== acceptExpected) {
+                    if (this._onError) this._onError(new Error('WebSocket handshake: Sec-WebSocket-Accept inválido'));
+                    socket.destroy();
+                    return;
+                }
+                this.readyState = 1; // OPEN
+                this._socket = socket;
+                // Remove HTTP response from buffer, keep any trailing WS data
+                const headerEnd = responseData.indexOf('\r\n\r\n') + 4;
+                const leftover = responseData.slice(headerEnd);
+                this._buffer = Buffer.from(leftover, 'binary');
+                if (this._onOpen) this._onOpen();
+                // Process any leftover data as WS frames
+                if (leftover.length > 0) this._processBuffer();
+                // Now attach data handler for WS frames only
+                socket.removeAllListeners('data');
+                socket.on('data', (d) => {
+                    this._buffer = Buffer.concat([this._buffer, d]);
+                    this._processBuffer();
+                });
             }
         });
 
@@ -992,8 +1006,6 @@ class MiniSignalServer {
         // Verify the signature
         let valid = false;
         try {
-            const pubKeyRaw = new Uint8Array(this._platform._crypto ? null : null);
-            // Use crypto engine for verification
             if (this._identityManager) {
                 const pubRaw = new Uint8Array(
                     this._identityManager._crypto.base64URLToArrayBuffer(publicKey)
@@ -1019,9 +1031,12 @@ class MiniSignalServer {
         const roomPeers = this._rooms.get(room);
 
         // Add peer to room
-        const pubRaw = new Uint8Array(
-            this._identityManager._crypto.base64URLToArrayBuffer(publicKey)
-        );
+        let pubRaw = null;
+        if (this._identityManager) {
+            pubRaw = new Uint8Array(
+                this._identityManager._crypto.base64URLToArrayBuffer(publicKey)
+            );
+        }
         roomPeers.set(ws, { peerId, publicKeyRaw: pubRaw });
         this._peerMap.set(ws, { peerId, roomId: room, publicKeyRaw: pubRaw });
 
@@ -1136,7 +1151,7 @@ class SecureJamMeshAdapter {
         this.ACK_TIMEOUT = 5000;
         this.messageRate = new Map();
         this.blacklist = new Set();
-        this.MAX_MESSAGES_PER_SECOND = 12;
+        this.MAX_MESSAGES_PER_SECOND = 60;
         this.WINDOW_MS = 1000;
         this._peerPublicKeys = new Map();
         this._onMessage = null;
@@ -1428,7 +1443,9 @@ class SecureJamMeshAdapter {
         if (!conn || !conn.pc) return;
         try {
             await conn.pc.setRemoteDescription(new RTCSessionDescription(data));
-        } catch (e) {}
+        } catch (e) {
+            if (this.log) this.log.warn('SecureJamMeshAdapter', `Error en WebRTC answer de ${from}: ${e.message}`);
+        }
     }
 
     async _handleWebRTCIce(from, data) {
@@ -1436,7 +1453,9 @@ class SecureJamMeshAdapter {
         if (!conn || !conn.pc) return;
         try {
             await conn.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-        } catch (e) {}
+        } catch (e) {
+            if (this.log) this.log.warn('SecureJamMeshAdapter', `Error en ICE candidate de ${from}: ${e.message}`);
+        }
     }
 
     // ACK system
@@ -1466,7 +1485,9 @@ class SecureJamMeshAdapter {
             } else {
                 conn.channel.send(rawData);
             }
-        } catch (e) {}
+        } catch (e) {
+            if (this.log) this.log.warn('SecureJamMeshAdapter', `Error enviando a ${peerId}: ${e.message}`);
+        }
     }
 
     async _sendWithAck(peerId, data) {
@@ -1750,15 +1771,82 @@ class WorkerPool {
         this._workers = [];
         this._taskQueue = [];
         this._activeCount = 0;
+        this._useWorkerThreads = config.useWorkerThreads !== false && platform.isNode();
     }
 
     async runTask(taskFn, data) {
-        // In current process (simplified, no actual threading)
-        return await taskFn(data);
+        if (this._useWorkerThreads && this.platform.isNode()) {
+            try {
+                const { Worker } = require('worker_threads');
+                return await new Promise((resolve, reject) => {
+                    const workerCode = `
+                        const { parentPort } = require('worker_threads');
+                        const fn = ${taskFn.toString()};
+                        parentPort.on('message', async (data) => {
+                            try {
+                                const result = await fn(data);
+                                parentPort.postMessage({ ok: true, result });
+                            } catch (e) {
+                                parentPort.postMessage({ ok: false, error: e.message });
+                            }
+                        });
+                    `;
+                    const worker = new Worker(workerCode, { eval: true });
+                    this._workers.push(worker);
+                    this._activeCount++;
+                    worker.on('message', (msg) => {
+                        this._activeCount--;
+                        const idx = this._workers.indexOf(worker);
+                        if (idx !== -1) this._workers.splice(idx, 1);
+                        if (msg.ok) resolve(msg.result);
+                        else reject(new Error(msg.error));
+                    });
+                    worker.on('error', reject);
+                    worker.postMessage(data);
+                    this._processQueue();
+                });
+            } catch (e) {
+                // Fallback to same-process execution
+            }
+        }
+        this._activeCount++;
+        try {
+            const result = await taskFn(data);
+            return result;
+        } finally {
+            this._activeCount--;
+            this._processQueue();
+        }
+    }
+
+    _processQueue() {
+        while (this._taskQueue.length > 0 && this._activeCount < this.maxWorkers) {
+            const { taskFn, data, resolve, reject } = this._taskQueue.shift();
+            this.runTask(taskFn, data).then(resolve).catch(reject);
+        }
+    }
+
+    async enqueue(taskFn, data) {
+        if (this._activeCount < this.maxWorkers) {
+            return this.runTask(taskFn, data);
+        }
+        return new Promise((resolve, reject) => {
+            this._taskQueue.push({ taskFn, data, resolve, reject });
+        });
     }
 
     get activeCount() { return this._activeCount; }
     get totalCount() { return this._workers.length; }
+    get pendingCount() { return this._taskQueue.length; }
+
+    terminate() {
+        for (const worker of this._workers) {
+            try { worker.terminate(); } catch (e) {}
+        }
+        this._workers = [];
+        this._taskQueue = [];
+        this._activeCount = 0;
+    }
 }
 
 // ===========================================================
@@ -1889,6 +1977,28 @@ class JAMKernelP2P {
     get signalingUrl() { return this.mesh.signalingUrl; }
     get isReady() { return this._ready; }
     get connectedPeers() { return this.mesh.connectedPeers; }
+
+    getSignalingUrl() { return this.mesh.signalingUrl; }
+    getPlatformName() {
+        if (this.platform.isBrowser()) return 'browser';
+        if (this.platform.isNode()) return 'node';
+        if (this.platform.isDeno()) return 'deno';
+        if (this.platform.isBun()) return 'bun';
+        return 'unknown';
+    }
+    whenIdentityReady() {
+        if (this.identity.isReady) return Promise.resolve(this.identity.peerId);
+        return new Promise(resolve => {
+            const check = () => {
+                if (this.identity.isReady) {
+                    resolve(this.identity.peerId);
+                } else {
+                    setTimeout(check, 50);
+                }
+            };
+            check();
+        });
+    }
 
     _initSecurityMonitoring() {
         setInterval(() => {
