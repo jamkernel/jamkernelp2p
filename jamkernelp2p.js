@@ -14,12 +14,12 @@
 // - Un solo archivo (~3500 líneas)
 // - Cero dependencias externas
 // - Multi-plataforma: Navegadores, Node.js, Deno, Bun
-// - Cifrado AES-256-GCM + PBKDF2 (60,000 iteraciones)
+// - Cifrado AES-256-GCM + PBKDF2 (600,000 iteraciones)
 // - Identidad ECDSA P-256 con firma y verificación
 // - Purga forense de claves en RAM
 // - Servidor de señalización WebSocket embebido (RFC 6455)
 // - Mesh P2P con WebRTC (browser) y WebSocket relay (Node.js)
-// - Rate limiting anti-DoS (12 msg/seg)
+// - Rate limiting anti-DoS (60 msg/s)
 // - Lista negra automática
 // - ACKs de entrega con reintentos
 // - Almacenamiento con mutex y backoff exponencial
@@ -152,13 +152,17 @@ function detectPlatform() {
 class EventBus {
     constructor() {
         this.listeners = new Map();
+        this._pluginListeners = new Map();
     }
 
-    on(event, callback, context = null) {
+    on(event, callback, pluginName = null) {
         if (typeof event !== 'string') return;
         if (!this.listeners.has(event)) this.listeners.set(event, []);
-        const targetCallback = context ? callback.bind(context) : callback;
-        this.listeners.get(event).push(targetCallback);
+        this.listeners.get(event).push(callback);
+        if (typeof pluginName === 'string') {
+            if (!this._pluginListeners.has(pluginName)) this._pluginListeners.set(pluginName, []);
+            this._pluginListeners.get(pluginName).push({ event, callback });
+        }
     }
 
     off(event, callback) {
@@ -167,13 +171,21 @@ class EventBus {
         if (idx !== -1) this.listeners.get(event).splice(idx, 1);
     }
 
+    offByPlugin(pluginName) {
+        if (!this._pluginListeners.has(pluginName)) return;
+        for (const { event, callback } of this._pluginListeners.get(pluginName)) {
+            this.off(event, callback);
+        }
+        this._pluginListeners.delete(pluginName);
+    }
+
     emit(event, data) {
         if (!this.listeners.has(event)) return;
         const callbacks = this.listeners.get(event).slice();
         const schedule = typeof setImmediate !== 'undefined' ? setImmediate : setTimeout;
         for (const cb of callbacks) {
             schedule(() => {
-                try { cb(data); } catch (e) { console.error('❌ Error en callback de', event, e.message); }
+                try { cb(data); } catch (e) { console.error('Error en callback de', event, e.message); }
             }, 0);
         }
     }
@@ -311,17 +323,15 @@ class StructuredLogger {
 class JamCrypto {
     constructor(platform) {
         this.platform = platform;
-        this.iterations = 60000;
+        this.iterations = 600000;
     }
 
-    _deriveDynamicSalt(roomId) {
-        const baseSalt = JAM_ENCODER.encode("jamkernelp2p_Mesh_Salt_Default_");
+    async _deriveSalt(roomId) {
         const cleanRoomId = roomId.replace(/[^a-zA-Z0-9_-]/g, '');
-        const roomBytes = JAM_ENCODER.encode(cleanRoomId);
-        const combined = new Uint8Array(baseSalt.length + roomBytes.length);
-        combined.set(baseSalt);
-        combined.set(roomBytes, baseSalt.length);
-        return combined;
+        const msg = 'jamkernelp2p_Mesh_Salt_Default_' + cleanRoomId;
+        const subtle = await this.platform.getCryptoSubtle();
+        const hash = await subtle.digest('SHA-256', JAM_ENCODER.encode(msg));
+        return new Uint8Array(hash);
     }
 
     async deriveKey(password, roomId) {
@@ -331,7 +341,7 @@ class JamCrypto {
             throw new Error('ID de sala inválido o demasiado corto');
         const subtle = await this.platform.getCryptoSubtle();
         const passwordBytes = JAM_ENCODER.encode(password);
-        const salt = this._deriveDynamicSalt(roomId);
+        const salt = await this._deriveSalt(roomId);
         const baseKey = await subtle.importKey('raw', passwordBytes, { name: 'PBKDF2' }, false, ['deriveKey']);
         return await subtle.deriveKey(
             { name: 'PBKDF2', salt, iterations: this.iterations, hash: 'SHA-256' },
@@ -358,11 +368,22 @@ class JamCrypto {
         return bytes.buffer;
     }
 
+    async _ensureCryptoKey(key) {
+        if (key && typeof key === 'object' && key.algorithm && key.algorithm.name === 'AES-GCM') return key;
+        if (typeof key === 'string') {
+            const subtle = await this.platform.getCryptoSubtle();
+            const raw = JAM_ENCODER.encode(key);
+            return await subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+        }
+        throw new Error('Invalid crypto key');
+    }
+
     async encrypt(text, cryptoKey) {
         const subtle = await this.platform.getCryptoSubtle();
+        const key = await this._ensureCryptoKey(cryptoKey);
         const dataBytes = JAM_ENCODER.encode(text);
         const iv = await this.platform.generateRandomBytes(12);
-        const encryptedBuffer = await subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, dataBytes);
+        const encryptedBuffer = await subtle.encrypt({ name: 'AES-GCM', iv }, key, dataBytes);
         const combined = new Uint8Array(iv.length + encryptedBuffer.byteLength);
         combined.set(iv);
         combined.set(new Uint8Array(encryptedBuffer), iv.length);
@@ -371,10 +392,11 @@ class JamCrypto {
 
     async decrypt(base64Data, cryptoKey) {
         const subtle = await this.platform.getCryptoSubtle();
+        const key = await this._ensureCryptoKey(cryptoKey);
         const combined = new Uint8Array(this.base64URLToArrayBuffer(base64Data));
         const iv = combined.slice(0, 12);
         const dataBytes = combined.slice(12);
-        const decryptedBuffer = await subtle.decrypt({ name: 'AES-GCM', iv }, cryptoKey, dataBytes);
+        const decryptedBuffer = await subtle.decrypt({ name: 'AES-GCM', iv }, key, dataBytes);
         return JAM_DECODER.decode(decryptedBuffer);
     }
 
@@ -388,6 +410,42 @@ class JamCrypto {
         } catch (e) {
             console.warn('⚠️ Fallo en purga de memoria:', e.message);
         }
+    }
+
+    // ── Encriptación para datos en reposo (identidad) ──
+    async _deriveStorageKey(passphrase) {
+        const subtle = await this.platform.getCryptoSubtle();
+        const material = await subtle.importKey('raw', JAM_ENCODER.encode('jamkernelp2p_identity_' + passphrase),
+            { name: 'PBKDF2' }, false, ['deriveKey']);
+        return await subtle.deriveKey(
+            { name: 'PBKDF2', salt: JAM_ENCODER.encode('jamkernelp2p_storage_salt'), iterations: 100000, hash: 'SHA-256' },
+            material,
+            { name: 'AES-GCM', length: 256 },
+            false,
+            ['encrypt', 'decrypt']
+        );
+    }
+
+    async encryptStorage(data, passphrase) {
+        const key = await this._deriveStorageKey(passphrase);
+        const subtle = await this.platform.getCryptoSubtle();
+        const iv = await this.platform.generateRandomBytes(12);
+        const encoded = JAM_ENCODER.encode(typeof data === 'string' ? data : JSON.stringify(data));
+        const encrypted = await subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
+        const combined = new Uint8Array(iv.length + encrypted.byteLength);
+        combined.set(iv);
+        combined.set(new Uint8Array(encrypted), iv.length);
+        return this.arrayBufferToBase64URL(combined.buffer);
+    }
+
+    async decryptStorage(base64Data, passphrase) {
+        const key = await this._deriveStorageKey(passphrase);
+        const subtle = await this.platform.getCryptoSubtle();
+        const combined = new Uint8Array(this.base64URLToArrayBuffer(base64Data));
+        const iv = combined.slice(0, 12);
+        const dataBytes = combined.slice(12);
+        const decrypted = await subtle.decrypt({ name: 'AES-GCM', iv }, key, dataBytes);
+        return JAM_DECODER.decode(decrypted);
     }
 
     // ── ECDSA P-256 ──
@@ -557,10 +615,17 @@ class _WebSocketFrame {
             for (let i = 7; i >= 0; i--) frame[9 - i] = (len >> (i * 8)) & 0xff;
             offset = 10;
         }
-
         if (mask) {
             const maskKey = new Uint8Array(4);
-            for (let i = 0; i < 4; i++) maskKey[i] = ((Math.random() * 256) | 0);
+            if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+                crypto.getRandomValues(maskKey);
+            } else if (typeof require !== 'undefined') {
+                try { maskKey.set(require('crypto').randomBytes(4)); } catch (e) {
+                    for (let i = 0; i < 4; i++) maskKey[i] = (Math.random() * 256) | 0;
+                }
+            } else {
+                for (let i = 0; i < 4; i++) maskKey[i] = (Math.random() * 256) | 0;
+            }
             frame.set(maskKey, offset);
             offset += 4;
             for (let i = 0; i < data.length; i++) frame[offset + i] = data[i] ^ maskKey[i % 4];
@@ -746,10 +811,16 @@ class _WebSocketPeer {
         }
     }
 
-    close() {
+    close(code, reason) {
         if (this._closed) return;
+        let payload = '';
+        if (typeof code === 'number') {
+            const buf = Buffer.alloc(2);
+            buf.writeUInt16BE(code, 0);
+            payload = Buffer.concat([buf, Buffer.from(reason || '', 'utf-8')]);
+        }
         try {
-            this.socket.write(Buffer.from(_WebSocketFrame.encode(0x8, '', false)));
+            this.socket.write(Buffer.from(_WebSocketFrame.encode(0x8, payload, false)));
         } catch (e) {}
         try { this.socket.end(); } catch (e) {}
         this._closed = true;
@@ -781,7 +852,7 @@ class _WebSocketClientNode {
 
         const netMod = isTLS ? require('tls') : require('net');
         const socket = netMod.connect(port, parsed.hostname, () => {
-            const path = parsed.pathname + parsed.search || '/';
+            const path = (parsed.pathname + parsed.search) || '/';
             socket.write(
                 'GET ' + path + ' HTTP/1.1\r\n' +
                 'Host: ' + parsed.host + '\r\n' +
@@ -793,12 +864,13 @@ class _WebSocketClientNode {
             );
         });
 
-        let responseData = '';
+        let responseData = Buffer.alloc(0);
         socket.on('data', (chunk) => {
-            responseData += chunk.toString();
-            if (responseData.includes('\r\n\r\n')) {
-                const lines = responseData.split('\r\n');
-                const statusLine = lines[0];
+            responseData = Buffer.concat([responseData, chunk]);
+            const headerEnd = responseData.indexOf('\r\n\r\n');
+            if (headerEnd !== -1) {
+                const headerStr = responseData.slice(0, headerEnd).toString('latin1');
+                const statusLine = headerStr.split('\r\n')[0];
                 if (!statusLine.includes('101')) {
                     if (this._onError) this._onError(new Error('WebSocket handshake failed: ' + statusLine));
                     socket.destroy();
@@ -806,10 +878,10 @@ class _WebSocketClientNode {
                 }
                 // Validate Sec-WebSocket-Accept
                 let acceptHeader = null;
-                for (let i = 1; i < lines.length; i++) {
-                    const lower = lines[i].toLowerCase();
+                for (const line of headerStr.split('\r\n').slice(1)) {
+                    const lower = line.toLowerCase();
                     if (lower.startsWith('sec-websocket-accept:')) {
-                        acceptHeader = lines[i].split(':')[1].trim();
+                        acceptHeader = line.split(':')[1].trim();
                         break;
                     }
                 }
@@ -820,19 +892,17 @@ class _WebSocketClientNode {
                 }
                 this.readyState = 1; // OPEN
                 this._socket = socket;
-                // Remove HTTP response from buffer, keep any trailing WS data
-                const headerEnd = responseData.indexOf('\r\n\r\n') + 4;
-                const leftover = responseData.slice(headerEnd);
-                this._buffer = Buffer.from(leftover, 'binary');
-                if (this._onOpen) this._onOpen();
-                // Process any leftover data as WS frames
-                if (leftover.length > 0) this._processBuffer();
-                // Now attach data handler for WS frames only
+                // Remove HTTP response handler, attach WS frame handler first
                 socket.removeAllListeners('data');
                 socket.on('data', (d) => {
                     this._buffer = Buffer.concat([this._buffer, d]);
                     this._processBuffer();
                 });
+                // Then process any data already buffered after HTTP headers
+                const leftover = responseData.slice(headerEnd + 4);
+                this._buffer = leftover;
+                if (this._onOpen) this._onOpen();
+                if (leftover.length > 0) this._processBuffer();
             }
         });
 
@@ -900,9 +970,15 @@ class _WebSocketClientNode {
         }
     }
 
-    close() {
+    close(code, reason) {
         if (this._closed) return;
-        try { this._socket.write(Buffer.from(_WebSocketFrame.encode(0x8, '', true))); } catch(e) {}
+        let payload = '';
+        if (typeof code === 'number') {
+            const buf = Buffer.alloc(2);
+            buf.writeUInt16BE(code, 0);
+            payload = Buffer.concat([buf, Buffer.from(reason || '', 'utf-8')]);
+        }
+        try { this._socket.write(Buffer.from(_WebSocketFrame.encode(0x8, payload, true))); } catch(e) {}
         try { this._socket.end(); } catch(e) {}
         this._closed = true;
         this.readyState = 3;
@@ -925,6 +1001,9 @@ class MiniSignalServer {
         this._rooms = new Map(); // roomId → Set<{ ws, peerId, publicKeyRaw }>
         this._peerMap = new Map(); // ws → { peerId, roomId, publicKeyRaw }
         this._started = false;
+        this._rateLimitMap = new Map();
+        this._rateLimitMax = 100;
+        this._rateLimitWindow = 10000;
     }
 
     get httpServer() { return this._httpServer; }
@@ -942,10 +1021,15 @@ class MiniSignalServer {
 
         let server;
         if (tlsKey && tlsCert && fs) {
-            server = https.createServer({
-                key: fs.readFileSync(tlsKey),
-                cert: fs.readFileSync(tlsCert)
-            });
+            try {
+                server = https.createServer({
+                    key: fs.readFileSync(tlsKey),
+                    cert: fs.readFileSync(tlsCert)
+                });
+            } catch (e) {
+                if (this._log) this._log.warn('MiniSignalServer', `Error cargando TLS: ${e.message}, usando HTTP`);
+                server = http.createServer();
+            }
         } else {
             server = http.createServer();
         }
@@ -964,7 +1048,8 @@ class MiniSignalServer {
             };
         });
 
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
+            server.on('error', reject);
             server.listen(this._port, this._host, () => {
                 this._port = server.address().port;
                 this._started = true;
@@ -980,6 +1065,23 @@ class MiniSignalServer {
         try { msg = JSON.parse(rawMsg); } catch (e) { return; }
 
         if (!msg.type) return;
+
+        // Rate limiting
+        const now = Date.now();
+        let rl = this._rateLimitMap.get(ws);
+        if (!rl) {
+            rl = { count: 0, windowStart: now };
+            this._rateLimitMap.set(ws, rl);
+        }
+        if (now - rl.windowStart > this._rateLimitWindow) {
+            rl.count = 0;
+            rl.windowStart = now;
+        }
+        rl.count++;
+        if (rl.count > this._rateLimitMax) {
+            try { ws.close(1008, 'Rate limit exceeded'); } catch (e) {}
+            return;
+        }
 
         switch (msg.type) {
             case 'announce':
@@ -1003,11 +1105,16 @@ class MiniSignalServer {
             ws.send(JSON.stringify({ type: 'announce_error', reason: 'Faltan campos requeridos' }));
             return;
         }
+        if (!/^[a-zA-Z0-9_-]+$/.test(peerId)) {
+            ws.send(JSON.stringify({ type: 'announce_error', reason: 'Formato de peerId inválido' }));
+            return;
+        }
         // Verify the signature
         let valid = false;
+        let pubRaw = null;
         try {
             if (this._identityManager) {
-                const pubRaw = new Uint8Array(
+                pubRaw = new Uint8Array(
                     this._identityManager._crypto.base64URLToArrayBuffer(publicKey)
                 );
                 valid = await this._identityManager.verify(peerId, peerId, signature, pubRaw);
@@ -1031,8 +1138,7 @@ class MiniSignalServer {
         const roomPeers = this._rooms.get(room);
 
         // Add peer to room
-        let pubRaw = null;
-        if (this._identityManager) {
+        if (pubRaw === null && this._identityManager) {
             pubRaw = new Uint8Array(
                 this._identityManager._crypto.base64URLToArrayBuffer(publicKey)
             );
@@ -1041,16 +1147,19 @@ class MiniSignalServer {
         this._peerMap.set(ws, { peerId, roomId: room, publicKeyRaw: pubRaw });
 
         // Send announce_ok
-        ws.send(JSON.stringify({
-            type: 'announce_ok',
-            peerId,
-            peers: Array.from(roomPeers.values())
-                .filter(p => p.peerId !== peerId)
-                .map(p => ({ peerId: p.peerId }))
-        }));
+        const peersList = Array.from(roomPeers.values())
+            .filter(p => p.peerId !== peerId)
+            .map(p => ({
+                peerId: p.peerId,
+                publicKey: p.publicKeyRaw && this._identityManager
+                    ? this._identityManager._crypto.arrayBufferToBase64URL(p.publicKeyRaw.buffer) : null
+            }));
+        ws.send(JSON.stringify({ type: 'announce_ok', peerId, peers: peersList }));
 
         // Broadcast peer_joined to others in room (except sender)
-        const joinMsg = JSON.stringify({ type: 'peer_joined', peerId, room });
+        const pubKeyB64 = pubRaw && this._identityManager
+            ? this._identityManager._crypto.arrayBufferToBase64URL(pubRaw.buffer) : publicKey;
+        const joinMsg = JSON.stringify({ type: 'peer_joined', peerId, room, publicKey: pubKeyB64 });
         for (const [otherWs, info] of roomPeers) {
             if (otherWs !== ws) {
                 otherWs.send(joinMsg);
@@ -1091,7 +1200,7 @@ class MiniSignalServer {
         const room = this._rooms.get(roomId);
         if (!room) return;
         const { to, data } = msg;
-        if (!to || !data) return;
+        if (!to || !data || !/^[a-zA-Z0-9_-]+$/.test(to)) return;
         for (const [otherWs, info] of room) {
             if (info.peerId === to) {
                 otherWs.send(JSON.stringify({
@@ -1119,6 +1228,7 @@ class MiniSignalServer {
             }
         }
         this._peerMap.delete(ws);
+        this._rateLimitMap.delete(ws);
         if (this._log) this._log.info('MiniSignalServer', `Peer ${peerId} abandonó sala ${roomId}`);
         if (this._events) this._events.emit('signal:peer_left', { peerId, room: roomId });
     }
@@ -1134,17 +1244,18 @@ class MiniSignalServer {
 // 11. SECURE JAM MESH ADAPTER (REAL CONNECTIVITY)
 // ===========================================================
 class SecureJamMeshAdapter {
-    constructor(eventBus, cryptoEngine, identityManager, platform, log) {
+    constructor(eventBus, cryptoEngine, identityManager, platform, log, config = {}) {
         this.events = eventBus;
         this.crypto = cryptoEngine;
         this.identity = identityManager;
         this.platform = platform;
         this.log = log;
-        this.connections = new Map(); // peerId → { channel, transport: 'webrtc'|'relay'|'direct' }
+        this.connections = new Map(); // peerId → { channel, transport: 'webrtc'|'relay'|'direct', ratchetKey }
         this.cryptoKey = null;
         this.roomId = null;
         this._signalWs = null;
         this._signalUrl = null;
+        this._beaconSignalUrl = null;
         this._pendingAcks = new Map();
         this._ackTimeouts = new Map();
         this.MAX_RETRIES = 2;
@@ -1155,6 +1266,29 @@ class SecureJamMeshAdapter {
         this.WINDOW_MS = 1000;
         this._peerPublicKeys = new Map();
         this._onMessage = null;
+        this.iceServers = config.iceServers || [{ urls: 'stun:stun.l.google.com:19302' }];
+        this._reconnecting = false;
+        this._reconnectAttempts = 0;
+        this._maxReconnectAttempts = 10;
+        this._heartbeatTimer = null;
+        this._heartbeatIntervalMs = 30000;
+        this._ecdhKeyPair = null;
+        this._ecdhPublicKeyB64 = null;
+        this._seqCounters = new Map();
+        this._replayWindows = new Map();
+        this._replayWindowSize = 64;
+        this._connectQueue = [];
+        this._connectActive = 0;
+        this._maxConcurrentConnects = 4;
+        this._maxBroadcastParallelism = 4;
+        this._blacklistTimers = new Map();
+        this._cleanupTimer = null;
+        this._discSocket = null;
+        this._beaconTimer = null;
+        this._discPort = 42069;
+        this._dgram = null;
+        this._wrtcLoaded = false;
+        this._startCleanupCycle();
 
         // Auto-initiate connections when peers are discovered
         this.events.on('mesh:peer_discovered', async ({ peerId }) => {
@@ -1162,7 +1296,7 @@ class SecureJamMeshAdapter {
             if (this.platform.hasWebRTC()) {
                 // Avoid glare: peer with smaller peerId initiates the offer
                 if (this.identity && this.identity.peerId < peerId) {
-                    this._initiateWebRTC(peerId);
+                    this._enqueueConnect(peerId);
                 } else if (this.identity && this.identity.peerId > peerId) {
                     // Wait for the other side to initiate
                 } else {
@@ -1172,18 +1306,20 @@ class SecureJamMeshAdapter {
                     this.events.emit('mesh:peer_connected', { peerId, transport: 'relay' });
                 }
             } else if (this.platform.isNode()) {
-                // Try optional wrtc for Node.js
-                let wrtc = null;
-                try { wrtc = require('wrtc'); } catch (e) {
-                    try { wrtc = require('@roamhq/wrtc'); } catch (e2) {}
-                }
-                if (wrtc) {
-                    global.RTCPeerConnection = wrtc.RTCPeerConnection;
-                    global.RTCSessionDescription = wrtc.RTCSessionDescription;
-                    global.RTCIceCandidate = wrtc.RTCIceCandidate;
-                    if (this.identity && this.identity.peerId < peerId) {
-                        this._initiateWebRTC(peerId);
+                if (!this._wrtcLoaded) {
+                    let wrtc = null;
+                    try { wrtc = require('wrtc'); } catch (e) {
+                        try { wrtc = require('@roamhq/wrtc'); } catch (e2) {}
                     }
+                    if (wrtc) {
+                        global.RTCPeerConnection = wrtc.RTCPeerConnection;
+                        global.RTCSessionDescription = wrtc.RTCSessionDescription;
+                        global.RTCIceCandidate = wrtc.RTCIceCandidate;
+                        this._wrtcLoaded = true;
+                    }
+                }
+                if (this._wrtcLoaded && this.identity && this.identity.peerId < peerId) {
+                    this._enqueueConnect(peerId);
                     // If peerId > mine, wait for the offer
                 } else {
                     this.connections.set(peerId, {
@@ -1201,6 +1337,16 @@ class SecureJamMeshAdapter {
                 if (this.log) this.log.info('SecureJamMeshAdapter', `Relay conectado con ${peerId}`);
                 this.events.emit('mesh:peer_connected', { peerId, transport: 'relay' });
             }
+        });
+
+        // Send ECDH handshake when a peer connects
+        this.events.on('mesh:peer_connected', ({ peerId }) => {
+            if (this._ecdhPublicKeyB64 && this.cryptoKey) {
+                this._sendEcdhHandshake(peerId);
+            }
+        });
+        this.events.on('mesh:peer_left', ({ peerId }) => {
+            this._cleanupPeerState(peerId);
         });
 
         // Handle WebRTC signaling messages (offer/answer/ICE)
@@ -1223,25 +1369,48 @@ class SecureJamMeshAdapter {
         return new Promise((resolve, reject) => {
             const parsed = new URL(url);
             const isNode = this.platform.isNode();
+            let settled = false;
+            const timer = setTimeout(() => {
+                if (!settled) { settled = true; reject(new Error('WS connect timeout')); }
+            }, 15000);
+
             if (isNode) {
                 const ws = new _WebSocketClientNode(url);
                 ws._onOpen = () => {
+                    if (settled) return;
+                    settled = true;
+                    clearTimeout(timer);
                     this._signalWs = ws;
                     this._setupSignalListeners(ws);
+                    this._startHeartbeat();
                     resolve();
                 };
-                ws._onError = (err) => reject(err);
-                ws.connect();
+                ws._onError = (err) => {
+                    if (settled) return;
+                    settled = true;
+                    clearTimeout(timer);
+                    reject(err);
+                };
+                try { ws.connect(); } catch (e) { if (!settled) { settled = true; clearTimeout(timer); reject(e); } }
             } else {
                 const WSClass = this.platform.getWebSocketClass();
-                if (!WSClass) { reject(new Error('WebSocket no disponible en esta plataforma')); return; }
+                if (!WSClass) { clearTimeout(timer); reject(new Error('WebSocket no disponible en esta plataforma')); return; }
                 const ws = new WSClass(url);
                 ws.onopen = () => {
+                    if (settled) return;
+                    settled = true;
+                    clearTimeout(timer);
                     this._signalWs = ws;
                     this._setupSignalListenersBrowser(ws);
+                    this._startHeartbeat();
                     resolve();
                 };
-                ws.onerror = (err) => reject(err);
+                ws.onerror = (err) => {
+                    if (settled) return;
+                    settled = true;
+                    clearTimeout(timer);
+                    reject(err);
+                };
             }
         });
     }
@@ -1253,7 +1422,9 @@ class SecureJamMeshAdapter {
         };
         ws._onClose = () => {
             if (this.log) this.log.warn('SecureJamMeshAdapter', 'Conexión con servidor de señalización perdida');
+            this._stopHeartbeat();
             this.events.emit('signal:connection_lost', {});
+            this._tryReconnect();
         };
         ws._onError = (err) => {
             if (this.log) this.log.error('SecureJamMeshAdapter', 'Error en WebSocket', { error: err.message });
@@ -1266,26 +1437,33 @@ class SecureJamMeshAdapter {
         };
         ws.onclose = () => {
             if (this.log) this.log.warn('SecureJamMeshAdapter', 'Conexión con servidor de señalización perdida');
+            this._stopHeartbeat();
             this.events.emit('signal:connection_lost', {});
+            this._tryReconnect();
         };
         ws.onerror = () => {};
     }
 
-    _handleSignalMessage(rawMsg) {
+    async _handleSignalMessage(rawMsg) {
         let msg;
         try { msg = JSON.parse(rawMsg); } catch (e) { return; }
         if (!msg.type) return;
 
         switch (msg.type) {
             case 'announce_ok':
-                this._peerId = msg.peerId;
                 if (this.log) this.log.info('SecureJamMeshAdapter', `Anuncio confirmado como ${msg.peerId}`);
                 this.events.emit('mesh:announce_ok', { peerId: msg.peerId });
                 if (msg.peers) {
                     for (const p of msg.peers) {
-                        if (!this.connections.has(p.peerId)) {
-                            this.events.emit('mesh:peer_discovered', { peerId: p.peerId });
+                        if (this.connections.has(p.peerId)) continue;
+                        if (p.publicKey && !(await this._verifyPeerIdentity(p.peerId, p.publicKey))) {
+                            if (this.log) this.log.warn('SecureJamMeshAdapter', `Identidad inválida: ${p.peerId}`);
+                            this._blacklistPeer(p.peerId);
+                            this.events.emit('peer:attack_detected', p.peerId);
+                            continue;
                         }
+                        if (p.publicKey) this._peerPublicKeys.set(p.peerId, p.publicKey);
+                        this.events.emit('mesh:peer_discovered', { peerId: p.peerId });
                     }
                 }
                 break;
@@ -1295,24 +1473,40 @@ class SecureJamMeshAdapter {
                 break;
             case 'peer_joined':
                 if (!this.connections.has(msg.peerId)) {
+                    if (msg.publicKey && !(await this._verifyPeerIdentity(msg.peerId, msg.publicKey))) {
+                        if (this.log) this.log.warn('SecureJamMeshAdapter', `Identidad inválida: ${msg.peerId}`);
+                        this._blacklistPeer(msg.peerId);
+                        this.events.emit('peer:attack_detected', msg.peerId);
+                        break;
+                    }
+                    if (msg.publicKey) this._peerPublicKeys.set(msg.peerId, msg.publicKey);
                     if (this.log) this.log.info('SecureJamMeshAdapter', `Peer descubierto: ${msg.peerId}`);
                     this.events.emit('mesh:peer_discovered', { peerId: msg.peerId });
                 }
                 break;
             case 'peer_left':
-                this.connections.delete(msg.peerId);
-                this._peerPublicKeys.delete(msg.peerId);
+                this._cleanupPeerState(msg.peerId);
                 this.events.emit('mesh:peer_left', { peerId: msg.peerId });
                 break;
             case 'signal':
                 this._handleSignalRelay(msg);
                 break;
             case 'relay_msg':
-                this._handleRelayedMessage(msg);
+                await this._handleRelayedMessage(msg);
                 break;
             case 'pong':
-                // ignore
                 break;
+        }
+    }
+
+    async _verifyPeerIdentity(peerId, publicKeyB64) {
+        if (!this.identity || !this.crypto) return false;
+        try {
+            const raw = new Uint8Array(this.crypto.base64URLToArrayBuffer(publicKeyB64));
+            const expected = await this.identity.derivePeerIdFromPublicKey(raw);
+            return expected === peerId;
+        } catch (e) {
+            return false;
         }
     }
 
@@ -1326,23 +1520,316 @@ class SecureJamMeshAdapter {
         }
     }
 
-    _handleRelayedMessage(msg) {
+    async _handleRelayedMessage(msg) {
         // Relayed message from signal server (Node.js relay mode)
         const { from, data: encryptedPayload } = msg;
-        this._decryptAndEmit(from, encryptedPayload);
+        try {
+            await this._decryptAndEmit(from, encryptedPayload);
+        } catch (e) {
+            if (this.log) this.log.warn('SecureJamMeshAdapter', 'Error en relayed message', { error: e.message });
+        }
+    }
+
+    // ── ECDH KEY EXCHANGE + FORWARD SECRECY ──
+    async _ensureEcdhKeyPair() {
+        if (this._ecdhKeyPair) return;
+        const subtle = await this.platform.getCryptoSubtle();
+        this._ecdhKeyPair = await subtle.generateKey(
+            { name: 'ECDH', namedCurve: 'P-256' },
+            true,
+            ['deriveKey', 'deriveBits']
+        );
+        const rawPub = await subtle.exportKey('raw', this._ecdhKeyPair.publicKey);
+        this._ecdhPublicKeyB64 = this.crypto.arrayBufferToBase64URL(rawPub);
+    }
+
+    async _ratchetAdvance(keyObj) {
+        // keyObj = { raw: string, crypto: CryptoKey }
+        const nextRaw = await this.crypto.sha256(keyObj.raw + ':jam-ratchet');
+        const subtle = await this.platform.getCryptoSubtle();
+        const rawBytes = JAM_ENCODER.encode(nextRaw);
+        const cryptoKey = await subtle.importKey('raw', rawBytes, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+        return { raw: nextRaw, crypto: cryptoKey };
+    }
+
+    async _sendEcdhHandshake(peerId) {
+        if (!this._ecdhPublicKeyB64 || !this.cryptoKey || !this.identity || !this.identity.isReady) return;
+        const identityPubRaw = await this.crypto.exportPublicKey(this.identity._publicKey);
+        const identityPubB64 = this.crypto.arrayBufferToBase64URL(identityPubRaw.buffer);
+        const sig = await this.identity.sign(this._ecdhPublicKeyB64);
+        const packet = JSON.stringify({
+            _type: '_ecd_handshake', pub: this._ecdhPublicKeyB64,
+            identityPub: identityPubB64, sig: sig
+        });
+        const encrypted = await this.crypto.encrypt(packet, this.cryptoKey);
+        await this._sendToPeer(peerId, encrypted);
+    }
+
+    async _handleEcdhHandshake(peerId, packet) {
+        if (!this._ecdhKeyPair || !this.cryptoKey) return;
+        const conn = this.connections.get(peerId);
+        if (!conn || conn.ratchetKey) return;
+        try {
+            const remotePubB64 = packet.pub;
+            const identityPubB64 = packet.identityPub;
+            const sig = packet.sig;
+            if (!remotePubB64 || !identityPubB64 || !sig) {
+                if (this.log) this.log.warn('SecureJamMeshAdapter', `ECDH handshake de ${peerId}: faltan credenciales, rechazado`);
+                return;
+            }
+            const identityPubRaw = new Uint8Array(this.crypto.base64URLToArrayBuffer(identityPubB64));
+            const derivedId = await this.identity.derivePeerIdFromPublicKey(identityPubRaw);
+            if (derivedId !== peerId) {
+                if (this.log) this.log.warn('SecureJamMeshAdapter', `ECDH handshake: identityPub no coincide con peerId ${peerId}`);
+                return;
+            }
+            const valid = await this.identity.verify(peerId, remotePubB64, sig, identityPubRaw);
+            if (!valid) {
+                if (this.log) this.log.warn('SecureJamMeshAdapter', `ECDH handshake de ${peerId}: firma inválida`);
+                return;
+            }
+            const subtle = await this.platform.getCryptoSubtle();
+            const remoteRaw = new Uint8Array(this.crypto.base64URLToArrayBuffer(remotePubB64));
+            const remotePub = await subtle.importKey('raw', remoteRaw, { name: 'ECDH', namedCurve: 'P-256' }, true, []);
+            const sharedBits = await subtle.deriveBits(
+                { name: 'ECDH', public: remotePub },
+                this._ecdhKeyPair.privateKey,
+                256
+            );
+            const sharedB64 = this.crypto.arrayBufferToBase64URL(sharedBits);
+            const hashedKey = await this.crypto.sha256(sharedB64);
+            const initKeyStr = await this.crypto.sha256(hashedKey + ':' + this.roomId + ':jam-ratchet-init');
+            const initKeyRaw = JAM_ENCODER.encode(initKeyStr);
+            const cryptoKey = await subtle.importKey('raw', initKeyRaw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+            conn.ratchetKey = { raw: initKeyStr, crypto: cryptoKey };
+            if (this.log) this.log.info('SecureJamMeshAdapter', `Ratchet establecido con ${peerId}`);
+        } catch (e) {
+            if (this.log) this.log.warn('SecureJamMeshAdapter', `Error ECDH con ${peerId}: ${e.message}`);
+        }
+    }
+
+    // ── HEARTBEAT (solo señalización, peers se mantienen vía ping del servidor) ──
+    _startHeartbeat() {
+        this._stopHeartbeat();
+        this._heartbeatTimer = setInterval(() => {
+            if (this._signalWs && typeof this._signalWs.send === 'function') {
+                try { this._signalWs.send(JSON.stringify({ type: 'ping' })); } catch (e) {}
+            }
+        }, this._heartbeatIntervalMs);
+    }
+
+    _stopHeartbeat() {
+        if (this._heartbeatTimer) {
+            clearInterval(this._heartbeatTimer);
+            this._heartbeatTimer = null;
+        }
+    }
+
+    // ── GESTIÓN DE ESTRÉS ──
+    _startCleanupCycle() {
+        if (this._cleanupTimer) clearInterval(this._cleanupTimer);
+        this._cleanupTimer = setInterval(() => {
+            const now = Date.now();
+            // Clean stale pendingAcks
+            for (const [msgId, pending] of [...this._pendingAcks]) {
+                if (now - pending.timestamp > this.ACK_TIMEOUT * (this.MAX_RETRIES + 2)) {
+                    clearTimeout(this._ackTimeouts.get(msgId));
+                    this._pendingAcks.delete(msgId);
+                    this._ackTimeouts.delete(msgId);
+                }
+            }
+            // Clean stale blacklist entries (5 min)
+            for (const [peerId, timer] of [...this._blacklistTimers]) {
+                if (now - timer > 300000) {
+                    this.blacklist.delete(peerId);
+                    this._blacklistTimers.delete(peerId);
+                }
+            }
+        }, 15000);
+    }
+
+    _stopCleanupCycle() {
+        if (this._cleanupTimer) {
+            clearInterval(this._cleanupTimer);
+            this._cleanupTimer = null;
+        }
+    }
+
+    _enqueueConnect(peerId) {
+        this._connectQueue.push(peerId);
+        this._processConnectQueue();
+    }
+
+    _processConnectQueue() {
+        while (this._connectActive < this._maxConcurrentConnects && this._connectQueue.length > 0) {
+            const peerId = this._connectQueue.shift();
+            if (this.connections.has(peerId)) continue;
+            this._connectActive++;
+            this._initiateWebRTC(peerId).finally(() => {
+                this._connectActive--;
+                this._processConnectQueue();
+            }).catch(() => {});
+        }
+    }
+
+    _cleanupPeerState(peerId) {
+        const conn = this.connections.get(peerId);
+        if (conn) {
+            if (conn.pc && typeof conn.pc.close === 'function') {
+                try { conn.pc.close(); } catch (e) {}
+            }
+        }
+        this.connections.delete(peerId);
+        this._peerPublicKeys.delete(peerId);
+        this._replayWindows.delete(peerId);
+        this._seqCounters.delete(peerId);
+        // Clean pending ACKs for this peer
+        for (const [msgId, pending] of [...this._pendingAcks]) {
+            if (pending.peerId === peerId) {
+                clearTimeout(this._ackTimeouts.get(msgId));
+                this._pendingAcks.delete(msgId);
+                this._ackTimeouts.delete(msgId);
+            }
+        }
+    }
+
+    _blacklistPeer(peerId) {
+        this.blacklist.add(peerId);
+        this._blacklistTimers.set(peerId, Date.now());
+    }
+
+    // ── LAN DISCOVERY (Node.js, UDP broadcast, 0 dependencias) ──
+    _startLanDiscovery() {
+        if (!this.platform || !this.platform.isNode()) return;
+        if (this._discSocket) return;
+        try { this._dgram = require('dgram'); } catch (e) { return; }
+        this._discSocket = this._dgram.createSocket({ type: 'udp4', reuseAddr: true });
+        this._discSocket.on('message', (msg, rinfo) => {
+            try {
+                const data = JSON.parse(msg.toString());
+                if (data.type !== 'jam_here') return;
+                if (!data.peerId || !data.signalUrl) return;
+                if (this.identity && data.peerId === this.identity.peerId) return;
+                if (this.connections.has(data.peerId)) return;
+                if (this._signalWs) return; // already have a signal server
+                if (this.log) this.log.info('SecureJamMeshAdapter', `LAN → ${data.peerId} en ${data.signalUrl}`);
+                this._connectToDiscovered(data.signalUrl);
+            } catch (e) {}
+        });
+        this._discSocket.on('error', () => {});
+        this._discSocket.bind(this._discPort, () => {
+            this._discSocket.setBroadcast(true);
+            if (this._signalUrl && this.identity) this._sendBeacon();
+            this._beaconTimer = setInterval(() => this._sendBeacon(), 10000);
+        });
+    }
+
+    _sendBeacon() {
+        const beaconUrl = this._beaconSignalUrl || this._signalUrl;
+        if (!this._discSocket || !this.identity || !beaconUrl) return;
+        const msg = JSON.stringify({ type: 'jam_here', peerId: this.identity.peerId, signalUrl: beaconUrl });
+        const buf = Buffer.from(msg);
+        try { this._discSocket.send(buf, 0, buf.length, this._discPort, '255.255.255.255'); } catch (e) {}
+    }
+
+    async _connectToDiscovered(signalUrl) {
+        try {
+            // preserve our own beacon URL so we keep broadcasting it
+            if (!this._beaconSignalUrl && this._signalUrl) this._beaconSignalUrl = this._signalUrl;
+            await this.connectToSignalServer(signalUrl);
+            if (this.roomId && this.cryptoKey) {
+                await this._announceRoom();
+            }
+        } catch (e) {
+            if (this.log) this.log.warn('SecureJamMeshAdapter', `LAN connect fail: ${e.message}`);
+        }
+    }
+
+    _stopBeacon() {
+        if (this._beaconTimer) { clearInterval(this._beaconTimer); this._beaconTimer = null; }
+    }
+
+    _stopLanDiscovery() {
+        this._stopBeacon();
+        if (this._discSocket) {
+            try { this._discSocket.close(); } catch (e) {}
+            this._discSocket = null;
+        }
+    }
+
+    // ── RECONEXIÓN AUTOMÁTICA ──
+    async _tryReconnect() {
+        if (this._reconnecting || !this._signalUrl) return;
+        this._reconnecting = true;
+        this._reconnectAttempts = 0;
+        const maxDelay = 30000;
+        const attempt = async () => {
+            while (this._reconnectAttempts < this._maxReconnectAttempts) {
+                const delay = Math.min(1000 * Math.pow(2, this._reconnectAttempts), maxDelay);
+                await new Promise(r => setTimeout(r, delay));
+                try {
+                    if (this.log) this.log.info('SecureJamMeshAdapter', `Reconectando (intento ${this._reconnectAttempts + 1})...`);
+                    await this.connectToSignalServer(this._signalUrl);
+                    if (this.roomId && this.cryptoKey) {
+                        await this._announceRoom();
+                    }
+                    if (this.log) this.log.info('SecureJamMeshAdapter', 'Reconexión exitosa');
+                    this._reconnecting = false;
+                    this._reconnectAttempts = 0;
+                    return;
+                } catch (e) {
+                    this._reconnectAttempts++;
+                }
+            }
+            if (this.log) this.log.error('SecureJamMeshAdapter', 'Reconexión agotada');
+            this._reconnecting = false;
+        };
+        attempt();
     }
 
     async _decryptAndEmit(peerId, encryptedPayload) {
         const cleanPeerId = peerId.replace(/[^a-zA-Z0-9_-]/g, '');
         if (this.blacklist.has(cleanPeerId)) return;
         if (!this._checkRateLimit(cleanPeerId)) {
-            this.blacklist.add(cleanPeerId);
+            this._blacklistPeer(cleanPeerId);
             this.events.emit('peer:attack_detected', cleanPeerId);
             return;
         }
         try {
-            const decryptedText = await this.crypto.decrypt(encryptedPayload, this.cryptoKey);
+            const conn = this.connections.get(cleanPeerId);
+            let decryptedText;
+            let usedRatchet = false;
+            if (conn && conn.ratchetKey) {
+                try {
+                    decryptedText = await this.crypto.decrypt(encryptedPayload, conn.ratchetKey.crypto);
+                    usedRatchet = true;
+                } catch (e) {
+                    decryptedText = await this.crypto.decrypt(encryptedPayload, this.cryptoKey);
+                }
+            } else {
+                decryptedText = await this.crypto.decrypt(encryptedPayload, this.cryptoKey);
+            }
             const packet = JSON.parse(decryptedText);
+            // Replay protection
+            if (packet._seq !== undefined && !this._checkReplay(cleanPeerId, packet._seq)) {
+                if (this.log) this.log.warn('SecureJamMeshAdapter', `Replay detectado de ${cleanPeerId}, seq=${packet._seq}`);
+                return;
+            }
+            // Forward secrecy: advance receiving ratchet (only for ratchet-decrypted messages)
+            if (conn && usedRatchet) {
+                conn.ratchetKey = await this._ratchetAdvance(conn.ratchetKey);
+            }
+            // Handle ECDH handshake
+            if (packet._type === '_ecd_handshake') {
+                await this._handleEcdhHandshake(cleanPeerId, packet);
+                if (!this._ecdhPublicKeyB64) return;
+                // Reply with our ECDH key if we haven't yet
+                const existing = this.connections.get(cleanPeerId);
+                if (existing && !existing.ratchetKey) {
+                    await this._sendEcdhHandshake(cleanPeerId);
+                }
+                return;
+            }
             // Handle ACKs
             if (packet._type === '_ack') {
                 this._handleAck(packet._msgId);
@@ -1350,7 +1837,11 @@ class SecureJamMeshAdapter {
             }
             // Auto-respond with ACK
             if (packet._msgId) {
-                await this._sendAck(peerId, packet._msgId);
+                await this._sendAck(cleanPeerId, packet._msgId);
+            }
+            if (packet.data === undefined) {
+                if (this.log) this.log.warn('SecureJamMeshAdapter', `Mensaje sin data de ${cleanPeerId}`);
+                return;
             }
             this.events.emit('peer:message', {
                 peerId: cleanPeerId,
@@ -1359,14 +1850,15 @@ class SecureJamMeshAdapter {
                 msgId: packet._msgId
             });
         } catch (error) {
-            // Decryption error
+            if (this.log) this.log.warn('SecureJamMeshAdapter', `Error descifrando mensaje de ${cleanPeerId}: ${error.message}`);
         }
     }
 
     // WebRTC signaling (browser + Node.js with wrtc)
     async _initiateWebRTC(peerId) {
+        let pc;
         try {
-            const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+            pc = new RTCPeerConnection({ iceServers: this.iceServers });
             // Store PC immediately so answer/ICE handlers find it
             this.connections.set(peerId, { channel: null, transport: 'webrtc', pc });
             const dc = pc.createDataChannel('jamkernelp2p');
@@ -1376,23 +1868,27 @@ class SecureJamMeshAdapter {
                 this.events.emit('mesh:peer_connected', { peerId, transport: 'webrtc' });
             };
             dc.onmessage = (evt) => {
-                this._decryptAndEmit(peerId, evt.data);
+                this._decryptAndEmit(peerId, evt.data).catch(e => {
+                    if (this.log) this.log.warn('SecureJamMeshAdapter', 'Error decrypting from ' + peerId, { error: e.message });
+                });
             };
             dc.onclose = () => {
-                this.connections.delete(peerId);
+                this._cleanupPeerState(peerId);
                 this.events.emit('mesh:peer_disconnected', { peerId });
             };
             pc.onicecandidate = (e) => {
                 if (e.candidate && this._signalWs) {
-                    const msg = JSON.stringify({ type: 'signal', to: peerId, signalType: 'ice', data: { candidate: e.candidate } });
-                    if (this._signalWs && this._signalWs.send) this._signalWs.send(msg);
-                    else if (this._signalWs && this._signalWs.readyState === 1) this._signalWs.send(msg);
+                    try {
+                        const msg = JSON.stringify({ type: 'signal', to: peerId, signalType: 'ice', data: { candidate: e.candidate } });
+                        if (typeof this._signalWs.send === 'function') this._signalWs.send(msg);
+                    } catch (e) {}
                 }
             };
             // When signal relay sends answer/ice back, handle via events
             this._handleOfferCreated(pc, peerId);
         } catch (e) {
             if (this.log) this.log.error('SecureJamMeshAdapter', `Error WebRTC con ${peerId}: ${e.message}`);
+            this._cleanupPeerState(peerId);
         }
     }
 
@@ -1401,14 +1897,17 @@ class SecureJamMeshAdapter {
         await pc.setLocalDescription(offer);
         const msg = JSON.stringify({ type: 'signal', to: peerId, signalType: 'offer', data: { sdp: offer.sdp, type: offer.type } });
         if (this._signalWs) {
-            if (typeof this._signalWs.send === 'function') this._signalWs.send(msg);
+            try {
+                if (typeof this._signalWs.send === 'function') this._signalWs.send(msg);
+            } catch (e) {}
         }
     }
 
     async _handleWebRTCOffer(from, data) {
         if (this.connections.has(from)) return;
+        let pc;
         try {
-            const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+            pc = new RTCPeerConnection({ iceServers: this.iceServers });
             // Store PC immediately so ICE handlers find it before DataChannel opens
             this.connections.set(from, { channel: null, transport: 'webrtc', pc });
             pc.ondatachannel = (event) => {
@@ -1416,25 +1915,32 @@ class SecureJamMeshAdapter {
                 this.connections.set(from, { channel: dc, transport: 'webrtc', pc });
                 if (this.log) this.log.info('SecureJamMeshAdapter', `WebRTC conectado con ${from}`);
                 this.events.emit('mesh:peer_connected', { peerId: from, transport: 'webrtc' });
-                dc.onmessage = (evt) => this._decryptAndEmit(from, evt.data);
+                dc.onmessage = (evt) => {
+                    this._decryptAndEmit(from, evt.data).catch(e => {
+                        if (this.log) this.log.warn('SecureJamMeshAdapter', 'Error decrypting from ' + from, { error: e.message });
+                    });
+                };
                 dc.onclose = () => {
-                    this.connections.delete(from);
+                    this._cleanupPeerState(from);
                     this.events.emit('mesh:peer_disconnected', { peerId: from });
                 };
             };
             pc.onicecandidate = (e) => {
-                if (e.candidate && this._signalWs) {
-                    this._signalWs.send(JSON.stringify({ type: 'signal', to: from, signalType: 'ice', data: { candidate: e.candidate } }));
+                if (e.candidate && this._signalWs && typeof this._signalWs.send === 'function') {
+                    try {
+                        this._signalWs.send(JSON.stringify({ type: 'signal', to: from, signalType: 'ice', data: { candidate: e.candidate } }));
+                    } catch (e) {}
                 }
             };
             await pc.setRemoteDescription(new RTCSessionDescription(data));
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
-            if (this._signalWs) {
+            if (this._signalWs && typeof this._signalWs.send === 'function') {
                 this._signalWs.send(JSON.stringify({ type: 'signal', to: from, signalType: 'answer', data: { sdp: answer.sdp, type: answer.type } }));
             }
         } catch (e) {
             if (this.log) this.log.error('SecureJamMeshAdapter', `Error WebRTC offer de ${from}: ${e.message}`);
+            this._cleanupPeerState(from);
         }
     }
 
@@ -1492,8 +1998,14 @@ class SecureJamMeshAdapter {
 
     async _sendWithAck(peerId, data) {
         const msgId = await this.crypto.generateUUID();
-        const packet = JSON.stringify({ data, ts: Date.now(), _msgId: msgId });
-        const encrypted = await this.crypto.encrypt(packet, this.cryptoKey);
+        const seq = this._nextSeq(peerId);
+        const packet = JSON.stringify({ data, ts: Date.now(), _msgId: msgId, _seq: seq });
+        const conn = this.connections.get(peerId);
+        const key = (conn && conn.ratchetKey) ? conn.ratchetKey.crypto : this.cryptoKey;
+        const encrypted = await this.crypto.encrypt(packet, key);
+        if (conn && conn.ratchetKey) {
+            conn.ratchetKey = await this._ratchetAdvance(conn.ratchetKey);
+        }
         const promise = new Promise((resolve, reject) => {
             this._pendingAcks.set(msgId, { peerId, data, encrypted, timestamp: Date.now(), retries: 0, resolve, reject });
             this._ackTimeouts.set(msgId, setTimeout(() => this._retryAck(msgId), this.ACK_TIMEOUT));
@@ -1531,8 +2043,12 @@ class SecureJamMeshAdapter {
         }
         // Fallback: relay through signal server
         if (this._signalWs) {
-            const msg = JSON.stringify({ type: 'relay_msg', to: peerId, data: encryptedPayload });
-            if (typeof this._signalWs.send === 'function') this._signalWs.send(msg);
+            try {
+                const msg = JSON.stringify({ type: 'relay_msg', to: peerId, data: encryptedPayload });
+                if (typeof this._signalWs.send === 'function') this._signalWs.send(msg);
+            } catch (e) {
+                if (this.log) this.log.warn('SecureJamMeshAdapter', 'Error en relay send', { error: e.message });
+            }
         }
     }
 
@@ -1540,7 +2056,14 @@ class SecureJamMeshAdapter {
         if (typeof roomId !== 'string') throw new Error('Identificador de canal corrupto');
         this.roomId = roomId;
         this.cryptoKey = await this.crypto.deriveKey(password, roomId);
-        // Announce to signal server
+        await this._ensureEcdhKeyPair();
+        await this._announceRoom();
+        this._startLanDiscovery();
+        if (this.log) this.log.info('SecureJamMeshAdapter', `Sala ${roomId} unida`);
+        this.events.emit('mesh:room_joined', { roomId });
+    }
+
+    async _announceRoom() {
         if (this._signalWs && this.identity && this.identity.isReady) {
             const signature = await this.identity.sign(this.identity.peerId);
             const pubKeyB64 = this.identity._crypto.arrayBufferToBase64URL(
@@ -1551,32 +2074,54 @@ class SecureJamMeshAdapter {
                 peerId: this.identity.peerId,
                 publicKey: pubKeyB64,
                 signature,
-                room: roomId
+                room: this.roomId
             });
-            if (typeof this._signalWs.send === 'function') this._signalWs.send(announce);
-            else if (this._signalWs.readyState === 1) this._signalWs.send(announce);
+            try {
+                if (typeof this._signalWs.send === 'function') {
+                    this._signalWs.send(announce);
+                }
+            } catch (e) {
+                if (this.log) this.log.warn('SecureJamMeshAdapter', 'Error al enviar announce', { error: e.message });
+            }
         }
-        if (this.log) this.log.info('SecureJamMeshAdapter', `Sala ${roomId} unida`);
-        this.events.emit('mesh:room_joined', { roomId });
     }
 
     async leaveRoom() {
         if (this.cryptoKey) {
             await this.crypto.purgeKeyFromMemory(this, 'cryptoKey');
         }
+        this._stopHeartbeat();
+        this._stopLanDiscovery();
+        this._stopCleanupCycle();
+        this._connectQueue = [];
+        this._connectActive = 0;
+        // Close all WebRTC connections
+        for (const [peerId, conn] of this.connections) {
+            if (conn.pc) try { conn.pc.close(); } catch (e) {}
+        }
         this.connections.clear();
         this._peerPublicKeys.clear();
+        this._seqCounters.clear();
+        this._replayWindows.clear();
         this.messageRate.clear();
         this.blacklist.clear();
+        this._blacklistTimers.clear();
+        for (const [msgId] of this._pendingAcks) {
+            clearTimeout(this._ackTimeouts.get(msgId));
+        }
+        this._pendingAcks.clear();
+        this._ackTimeouts.clear();
         this.roomId = null;
+        this._ecdhKeyPair = null;
+        this._ecdhPublicKeyB64 = null;
         if (this.log) this.log.info('SecureJamMeshAdapter', 'Sala abandonada');
         this.events.emit('mesh:room_left', {});
     }
 
     async broadcast(data) {
         if (!this.cryptoKey) throw new Error("No hay una sesión criptográfica activa en la malla");
-        const packet = JSON.stringify({ data, ts: Date.now(), _msgId: await this.crypto.generateUUID() });
-        const encrypted = await this.crypto.encrypt(packet, this.cryptoKey);
+        const msgId = await this.crypto.generateUUID();
+        const basePacket = { data, ts: Date.now(), _msgId: msgId };
         const activeConnections = Array.from(this.connections.entries())
             .filter(([peerId, conn]) => {
                 if (this.blacklist.has(peerId)) return false;
@@ -1584,21 +2129,30 @@ class SecureJamMeshAdapter {
                 if (conn.transport === 'relay' || conn.transport === 'direct') return true;
                 return false;
             });
-        const results = await Promise.allSettled(
-            activeConnections.map(([peerId, conn]) => {
-                return new Promise((resolve, reject) => {
+        // Process in chunks to limit crypto concurrency
+        const results = [];
+        for (let i = 0; i < activeConnections.length; i += this._maxBroadcastParallelism) {
+            const chunk = activeConnections.slice(i, i + this._maxBroadcastParallelism);
+            const chunkResults = await Promise.allSettled(
+                chunk.map(async ([peerId, conn]) => {
                     try {
+                        const key = (conn.ratchetKey && conn.ratchetKey.crypto) ? conn.ratchetKey.crypto : this.cryptoKey;
+                        const pkt = Object.assign({}, basePacket, { _seq: this._nextSeq(peerId) });
+                        const encrypted = await this.crypto.encrypt(JSON.stringify(pkt), key);
+                        if (conn.ratchetKey) {
+                            conn.ratchetKey = await this._ratchetAdvance(conn.ratchetKey);
+                        }
                         if (conn.transport === 'relay') {
                             const envelope = JSON.stringify({ type: 'relay_msg', to: peerId, data: encrypted });
                             conn.channel.send(envelope);
                         } else if (typeof conn.channel.send === 'function') {
                             conn.channel.send(encrypted);
                         }
-                        resolve();
-                    } catch (e) { reject(e); }
-                });
-            })
-        );
+                    } catch (e) { throw e; }
+                })
+            );
+            results.push(...chunkResults);
+        }
         results.forEach((result, idx) => {
             if (result.status === 'rejected') {
                 const [peerId] = activeConnections[idx];
@@ -1626,6 +2180,31 @@ class SecureJamMeshAdapter {
         window.count++;
         this.messageRate.set(cleanPeerId, window);
         return window.count <= this.MAX_MESSAGES_PER_SECOND;
+    }
+
+    _nextSeq(peerId) {
+        const seq = (this._seqCounters.get(peerId) || 0) + 1;
+        this._seqCounters.set(peerId, seq);
+        return seq;
+    }
+
+    _checkReplay(peerId, seq) {
+        if (typeof seq !== 'number' || seq < 0) return false;
+        let window = this._replayWindows.get(peerId);
+        if (!window) {
+            window = { highest: -1, set: new Set() };
+            this._replayWindows.set(peerId, window);
+        }
+        if (seq <= window.highest - this._replayWindowSize) return false;
+        if (seq > window.highest) {
+            for (const s of [...window.set]) {
+                if (s <= seq - this._replayWindowSize) window.set.delete(s);
+            }
+            window.highest = seq;
+        }
+        if (window.set.has(seq)) return false;
+        window.set.add(seq);
+        return true;
     }
 
     async handleIncomingPacket(peerId, encryptedPayload) {
@@ -1767,7 +2346,8 @@ class BatchStorage {
 class WorkerPool {
     constructor(platform, config = {}) {
         this.platform = platform;
-        this.maxWorkers = config.maxWorkers || (platform.getOs ? platform.getOs().cpus().length : 4);
+        const os = platform.getOs ? platform.getOs() : null;
+        this.maxWorkers = config.maxWorkers || (os ? os.cpus().length : 4);
         this._workers = [];
         this._taskQueue = [];
         this._activeCount = 0;
@@ -1798,10 +2378,17 @@ class WorkerPool {
                         this._activeCount--;
                         const idx = this._workers.indexOf(worker);
                         if (idx !== -1) this._workers.splice(idx, 1);
+                        worker.terminate().catch(() => {});
                         if (msg.ok) resolve(msg.result);
                         else reject(new Error(msg.error));
                     });
-                    worker.on('error', reject);
+                    worker.on('error', (err) => {
+                        this._activeCount--;
+                        const idx = this._workers.indexOf(worker);
+                        if (idx !== -1) this._workers.splice(idx, 1);
+                        worker.terminate().catch(() => {});
+                        reject(err);
+                    });
                     worker.postMessage(data);
                     this._processQueue();
                 });
@@ -1853,40 +2440,135 @@ class WorkerPool {
 // 14. JAM PLUGIN SYSTEM
 // ===========================================================
 class JAMPlugin {
-    constructor(kernel) {
-        this.kernel = kernel;
-        this.events = kernel.events;
-        this.log = kernel.log;
-        this.name = 'unnamed';
+    constructor(api) {
+        this.api = api;
+        this.kernel = api._kernel;
+        this.events = api.events;
+        this.log = api.log;
+        this.name = api.name || 'unnamed';
     }
 
     async init(config) {}
     async destroy() {}
 }
 
+class PluginAPI {
+    constructor(kernel, pluginName) {
+        this.name = pluginName;
+        this.events = kernel.events;
+        this.log = kernel.log;
+        this._kernel = kernel;
+
+        Object.defineProperties(this, {
+            peerId: { get: () => kernel.identity ? kernel.identity.peerId : null, enumerable: true },
+            roomId: { get: () => kernel.mesh ? kernel.mesh.roomId : null, enumerable: true },
+            connectedPeers: {
+                get: () => kernel.mesh ? [...kernel.mesh.connections.keys()] : [],
+                enumerable: true
+            }
+        });
+    }
+
+    async sendTo(peerId, data) {
+        if (!this._kernel.mesh) throw new Error('Mesh not available');
+        return this._kernel.mesh.sendTo(peerId, data);
+    }
+
+    async broadcast(data) {
+        if (!this._kernel.mesh) throw new Error('Mesh not available');
+        return this._kernel.mesh.broadcast(data);
+    }
+
+    async joinRoom(room, password) {
+        if (!this._kernel.mesh) throw new Error('Mesh not available');
+        return this._kernel.mesh.joinRoom(room, password);
+    }
+
+    async leaveRoom() {
+        if (!this._kernel.mesh) throw new Error('Mesh not available');
+        return this._kernel.mesh.leaveRoom();
+    }
+
+    async getStorage(key) {
+        return this._kernel.storage ? this._kernel.storage.get(key) : null;
+    }
+
+    async setStorage(key, value) {
+        return this._kernel.storage ? this._kernel.storage.put(key, value) : null;
+    }
+}
+
 class PluginManager {
     constructor(kernel) {
         this.kernel = kernel;
         this._plugins = new Map();
+        this._loaded = new Map();
+        this._mutex = new Mutex();
     }
 
     register(name, pluginClass) {
+        if (typeof pluginClass !== 'function') throw new Error(`Plugin "${name}": debe ser una clase/función constructora`);
         if (this._plugins.has(name)) throw new Error(`Plugin "${name}" ya registrado`);
         this._plugins.set(name, pluginClass);
         return this;
     }
 
     async load(name, config = {}) {
-        const PluginClass = this._plugins.get(name);
-        if (!PluginClass) throw new Error(`Plugin "${name}" no está registrado`);
-        const instance = new PluginClass(this.kernel);
-        instance.name = name;
-        await instance.init(config);
-        return instance;
+        await this._mutex.acquire();
+        try {
+            const PluginClass = this._plugins.get(name);
+            if (!PluginClass) throw new Error(`Plugin "${name}" no está registrado`);
+            if (this._loaded.has(name)) throw new Error(`Plugin "${name}" ya está cargado`);
+
+            const api = new PluginAPI(this.kernel, name);
+            const instance = new PluginClass(api);
+            instance.name = name;
+            instance.api = api;
+
+            this._loaded.set(name, instance);
+
+            const initPromise = instance.init(config);
+            const timeout = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error(`Plugin "${name}" init timed out after 30s`)), 30000)
+            );
+            await Promise.race([initPromise, timeout]);
+
+            this.kernel.events.emit('plugin:loaded', { name, config });
+            return instance;
+        } catch (e) {
+            this._loaded.delete(name);
+            throw e;
+        } finally {
+            this._mutex.release();
+        }
     }
 
     async unload(instance) {
-        await instance.destroy();
+        if (!instance || !instance.name) return;
+        const name = instance.name;
+        try {
+            await instance.destroy();
+        } catch (e) {
+            if (this.kernel.log) this.kernel.log.warn('PluginManager', `Error destroying plugin "${name}": ${e.message}`);
+        }
+        this.kernel.events.offByPlugin(name);
+        this._loaded.delete(name);
+        this.kernel.events.emit('plugin:unloaded', { name });
+    }
+
+    async unloadAll() {
+        const instances = [...this._loaded.values()];
+        for (const instance of instances.reverse()) {
+            await this.unload(instance);
+        }
+    }
+
+    getLoaded(name) {
+        return this._loaded.get(name) || null;
+    }
+
+    listLoaded() {
+        return [...this._loaded.keys()];
     }
 }
 
@@ -1896,23 +2578,35 @@ class PluginManager {
 function parseCLI(args) {
     const config = {};
     for (let i = 0; i < args.length; i++) {
+        const val = () => { if (i + 1 >= args.length) { console.error(`Error: ${args[i]} requiere un valor`); process.exit(1); } return args[++i]; };
         switch (args[i]) {
-            case '--port': config.port = parseInt(args[++i]); break;
-            case '--room': config.room = args[++i]; break;
-            case '--password': config.password = args[++i]; break;
-            case '--token': config.token = args[++i]; break;
-            case '--tls-key': config.tlsKey = args[++i]; break;
-            case '--tls-cert': config.tlsCert = args[++i]; break;
+            case '--port': config.port = parseInt(val()); break;
+            case '--room': config.room = val(); break;
+            case '--password': config.password = val(); break;
+            case '--identity-passphrase': config.identityPassphrase = val(); break;
+            case '--token': config.token = val(); break;
+            case '--tls-key': config.tlsKey = val(); break;
+            case '--tls-cert': config.tlsCert = val(); break;
             case '--cluster': config.cluster = true; break;
-            case '--workers': config.workers = parseInt(args[++i]); break;
-            case '--log-file': config.logFile = args[++i]; break;
-            case '--log-level': config.logLevel = args[++i]; break;
-            case '--host': config.host = args[++i]; break;
+            case '--workers': config.workers = parseInt(val()); break;
+            case '--log-file': config.logFile = val(); break;
+            case '--log-level': config.logLevel = val(); break;
+            case '--host': config.host = val(); break;
             case '-h':
             case '--help':
                 config.help = true;
                 break;
         }
+    }
+    if (!config.password && typeof process !== 'undefined' && process.env && process.env.JAM_PASSWORD) {
+        if (process.env.JAM_PASSWORD.length < 8) {
+            console.error('JAM_PASSWORD debe tener al menos 8 caracteres');
+            process.exit(1);
+        }
+        config.password = process.env.JAM_PASSWORD;
+    }
+    if (!config.identityPassphrase && typeof process !== 'undefined' && process.env && process.env.JAM_IDENTITY_PASSPHRASE) {
+        config.identityPassphrase = process.env.JAM_IDENTITY_PASSPHRASE;
     }
     return config;
 }
@@ -1929,6 +2623,10 @@ function printHelp() {
     --host H           Host (default: 0.0.0.0)
     --room X           Sala a la que unirse
     --password X       Contraseña de cifrado de la sala (min 8 caracteres)
+                       También: variable de entorno JAM_PASSWORD
+    --identity-passphrase X
+                       Frase para cifrar la identidad en disco (opcional)
+                       También: variable de entorno JAM_IDENTITY_PASSPHRASE
     --token X          Token de autenticación para la sala
     --tls-key FILE     Clave TLS para WSS
     --tls-cert FILE    Certificado TLS para WSS
@@ -2001,7 +2699,7 @@ class JAMKernelP2P {
     }
 
     _initSecurityMonitoring() {
-        setInterval(() => {
+        this._securityInterval = setInterval(() => {
             const now = Date.now();
             for (const [peer, data] of this.mesh.messageRate) {
                 if (now - data.timestamp > 60000) this.mesh.messageRate.delete(peer);
@@ -2011,14 +2709,25 @@ class JAMKernelP2P {
 
     async init(signalUrl) {
         await this.storage._init();
-        // Try to restore identity
         const savedIdentity = await this.storage.get('jamkernelp2p_identity');
         if (savedIdentity) {
-            try { await this.identity.fromJSON(savedIdentity); } catch (e) {}
+            try {
+                let raw = savedIdentity;
+                if (this.config.identityPassphrase) {
+                    const decrypted = await this.crypto.decryptStorage(savedIdentity, this.config.identityPassphrase);
+                    raw = JSON.parse(decrypted);
+                }
+                await this.identity.fromJSON(raw);
+            } catch (e) {
+                this.log.warn('JAMKernelP2P', `Identidad guardada corrupta o passphrase incorrecta: ${e.message}, generando nueva`);
+            }
         }
         if (!this.identity.isReady) {
             await this.identity.createIdentity();
-            const json = await this.identity.toJSON();
+            let json = await this.identity.toJSON();
+            if (this.config.identityPassphrase) {
+                json = await this.crypto.encryptStorage(json, this.config.identityPassphrase);
+            }
             await this.storage.put('jamkernelp2p_identity', json);
         }
         this.log.info('JAMKernelP2P', `Identidad: ${this.identity.peerId}`);
@@ -2043,6 +2752,7 @@ class JAMKernelP2P {
         const signalUrlToUse = signalUrl || (this._signalServer ? `ws://${this.config.host || '0.0.0.0'}:${this._signalServer.port}` : null);
         if (signalUrlToUse) {
             await this.mesh.connectToSignalServer(signalUrlToUse);
+            if (this._signalServer) this.mesh._beaconSignalUrl = signalUrlToUse;
             this.log.info('JAMKernelP2P', `Conectado a servidor de señalización: ${signalUrlToUse}`);
         }
 
@@ -2088,8 +2798,15 @@ class JAMKernelP2P {
         return await this.plugins.load(name, config);
     }
 
-    destroy() {
+    async destroy() {
+        await this.plugins.unloadAll();
         if (this._signalServer) this._signalServer.stop();
+        if (this._securityInterval) clearInterval(this._securityInterval);
+        await this.mesh.leaveRoom().catch(() => {});
+        this.mesh._stopCleanupCycle();
+        this.mesh._stopHeartbeat();
+        this.mesh._stopLanDiscovery();
+        this.events.listeners.clear();
         this.log.close();
     }
 }
