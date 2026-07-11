@@ -307,6 +307,18 @@ La identidad se persiste en BatchStorage. Si el usuario borra datos del sitio, g
 
 ---
 
+## Contacto y Comunidad
+
+| Canal | Enlace |
+|-------|--------|
+| 📩 Correo | jamkernelp2p@gmail.com |
+| 🐙 GitHub | https://github.com/jamkernel/jamkernelp2p |
+| ✈️ Telegram (contacto) | https://t.me/jamkernelp2p |
+| 📢 Canal Telegram | https://t.me/boost/jamkernelp2p_proyecto |
+| 🌐 Sitio Web | https://jamkernel.github.io |
+
+---
+
 ## Licencia
 
 **GNU GPL v3** — Eres libre de usar, modificar y distribuir este software bajo los términos de GNU GPL v3.
