@@ -1,0 +1,22 @@
+{
+  "name": "jamkernelp2p",
+  "version": "1.2.0",
+  "description": "JAM Omni-Kernel — Zero-dependency P2P mesh. Single file. Cross-platform. Works in browsers, Node.js, Deno, and Bun.",
+  "main": "jamkernelp2p.js",
+  "scripts": {
+    "start": "node jamkernelp2p.js",
+    "help": "node jamkernelp2p.js --help"
+  },
+  "keywords": ["p2p", "mesh", "webrtc", "websocket", "zero-dependency", "jamkernel"],
+  "license": "GPL-3.0",
+  "author": "Félix Martínez <jamkernelp2p@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jamkernel/jamkernelp2p.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jamkernel/jamkernelp2p/issues"
+  },
+  "homepage": "https://github.com/jamkernel/jamkernelp2p",
+  "private": true
+}
