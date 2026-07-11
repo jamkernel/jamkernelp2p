@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>jamkernelp2p — Kernel P2P Soberano</title>
+<style>
+:root {
+  --bg: #060b18;
+  --bg2: #0d1529;
+  --bg3: #131c31;
+  --cyan: #00f0ff;
+  --purple: #a855f7;
+  --pink: #ec4899;
+  --green: #3fb950;
+  --amber: #f59e0b;
+  --white: #f1f5f9;
+  --muted: #8899cc;
+  --dim: #3d4a6e;
+  --border: rgba(0, 240, 255, 0.1);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--white);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.7;
+}
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--dim); border-radius: 3px; }
+.container { max-width: 960px; margin: 0 auto; padding: 0 20px; }
+.section { padding: 80px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
+
+/* NAV */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: rgba(6, 11, 24, 0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  height: 56px;
+  gap: 24px;
+}
+nav .logo-small {
+  font-weight: 900;
+  font-size: 1.2rem;
+  background: linear-gradient(135deg, var(--cyan), var(--purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+nav a { color: var(--muted); text-decoration: none; font-size: 0.8rem; transition: color 0.2s; }
+nav a:hover { color: var(--cyan); }
+nav .nav-spacer { flex: 1; }
+nav .nav-cta {
+  background: linear-gradient(90deg, var(--cyan), var(--purple));
+  color: var(--bg) !important;
+  padding: 6px 16px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  -webkit-text-fill-color: var(--bg);
+}
+
+/* HERO */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 100px 20px 60px;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -50%; left: -50%;
+  width: 200%; height: 200%;
+  background: radial-gradient(ellipse at 30% 50%, rgba(0,240,255,0.04) 0%, transparent 50%),
+              radial-gradient(ellipse at 70% 50%, rgba(168,85,247,0.04) 0%, transparent 50%);
+  pointer-events: none;
+}
+.hero-badge {
+  display: inline-block;
+  background: rgba(0,240,255,0.06);
+  border: 1px solid rgba(0,240,255,0.15);
+  color: var(--cyan);
+  padding: 4px 16px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 24px;
+  font-family: monospace;
+}
+.hero h1 {
+  font-size: clamp(2.5rem, 8vw, 5rem);
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: -2px;
+  margin-bottom: 16px;
+}
+.hero h1 .gradient {
+  background: linear-gradient(135deg, var(--cyan), var(--purple), var(--pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.hero .subtitle {
+  font-size: clamp(1rem, 2.5vw, 1.4rem);
+  color: var(--muted);
+  max-width: 720px;
+  margin-bottom: 32px;
+}
+.hero-stats {
+  display: flex;
+  gap: 40px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 40px;
+}
+.hero-stats .stat { text-align: center; }
+.hero-stats .stat .num {
+  font-size: 2rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--cyan), var(--purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.hero-stats .stat .label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+.hero-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 14px 32px; border-radius: 6px;
+  font-weight: 700; font-size: 0.9rem;
+  text-decoration: none; transition: all 0.25s; cursor: pointer; border: none;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--cyan), var(--purple));
+  color: var(--bg);
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,240,255,0.25); }
+.btn-secondary {
+  background: transparent; color: var(--white); border: 1px solid var(--border);
+}
+.btn-secondary:hover { border-color: var(--cyan); transform: translateY(-2px); }
+
+/* TYPOGRAPHY */
+h2 {
+  font-size: clamp(1.8rem, 4vw, 2.5rem);
+  font-weight: 800;
+  margin-bottom: 20px;
+  letter-spacing: -1px;
+}
+h2 .highlight {
+  background: linear-gradient(135deg, var(--cyan), var(--purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 12px; color: var(--white); }
+p { color: var(--muted); font-size: 1.05rem; margin-bottom: 16px; max-width: 720px; }
+.section-title { text-align: center; margin-bottom: 48px; }
+.section-title p { margin: 0 auto; color: var(--dim); font-size: 0.95rem; max-width: 600px; }
+.separator { width: 60px; height: 2px; background: linear-gradient(90deg, var(--cyan), var(--purple)); margin: 0 auto 24px; }
+
+/* MANIFIESTO */
+.manifesto {
+  background: linear-gradient(135deg, rgba(0,240,255,0.03), rgba(168,85,247,0.03));
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 40px 36px;
+  margin: 40px 0;
+}
+.manifesto p { font-size: 1.1rem; color: var(--muted); font-style: italic; margin-bottom: 12px; }
+.manifesto .author { margin-top: 16px; font-style: normal; font-size: 0.9rem; color: var(--cyan); font-weight: 600; }
+
+/* GRID */
+.grid { display: grid; gap: 16px; margin-top: 24px; }
+.grid-2 { grid-template-columns: 1fr; }
+.grid-3 { grid-template-columns: 1fr; }
+.grid-4 { grid-template-columns: 1fr; }
+@media (min-width: 768px) {
+  .grid-2 { grid-template-columns: 1fr 1fr; }
+  .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .grid-4 { grid-template-columns: 1fr 1fr; }
+}
+.card {
+  background: var(--bg2);
+  border: 1px solid rgba(255,255,255,0.04);
+  padding: 24px;
+  border-radius: 10px;
+  transition: all 0.3s;
+}
+.card:hover { border-color: var(--border); transform: translateY(-3px); box-shadow: 0 12px 40px rgba(0,0,0,0.3); }
+.card .icon { font-size: 1.8rem; margin-bottom: 12px; display: block; }
+.card h3 { font-size: 1rem; margin-bottom: 8px; }
+.card p { font-size: 0.9rem; margin-bottom: 0; }
+.card ul { list-style: none; color: var(--muted); font-size: 0.9rem; }
+.card ul li { padding: 4px 0 4px 16px; position: relative; }
+.card ul li::before { content: '→'; position: absolute; left: 0; color: var(--cyan); font-weight: bold; }
+.card .tag {
+  display: inline-block; font-size: 0.65rem; padding: 2px 8px; border-radius: 10px;
+  background: rgba(0,240,255,0.06); color: var(--cyan);
+  border: 1px solid rgba(0,240,255,0.1); margin-top: 8px; font-family: monospace;
+}
+.card .tag-amber { background: rgba(245,158,11,0.1); color: var(--amber); border-color: rgba(245,158,11,0.2); }
+.card .tag-purple { background: rgba(168,85,247,0.1); color: var(--purple); border-color: rgba(168,85,247,0.2); }
+.card .tag-green { background: rgba(63,185,80,0.1); color: var(--green); border-color: rgba(63,185,80,0.2); }
+
+/* ARCH DIAGRAM */
+.arch-diagram {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 32px;
+  margin: 24px 0;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.8rem;
+  line-height: 1.8;
+  overflow-x: auto;
+  color: var(--muted);
+}
+.arch-diagram .highlight { color: var(--cyan); font-weight: 700; }
+.arch-diagram .accent { color: var(--purple); }
+.arch-diagram .dim { color: var(--dim); }
+.arch-diagram .green { color: var(--green); }
+
+/* ROADMAP */
+.roadmap-item {
+  display: flex; gap: 20px; padding: 20px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.roadmap-item:last-child { border-bottom: none; }
+.roadmap-item .phase {
+  flex-shrink: 0; width: 100px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 4px; font-size: 0.7rem;
+  font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+}
+.phase-now { background: rgba(0,240,255,0.08); color: var(--cyan); }
+.phase-next { background: rgba(168,85,247,0.08); color: var(--purple); }
+.phase-future { background: rgba(236,72,153,0.08); color: var(--pink); }
+.roadmap-item .content h4 { font-size: 1rem; margin-bottom: 4px; }
+.roadmap-item .content p { font-size: 0.85rem; margin-bottom: 0; }
+
+/* TABLE */
+table.comp {
+  width: 100%; border-collapse: collapse; margin: 24px 0; font-size: 0.85rem;
+}
+table.comp th, table.comp td {
+  border: 1px solid rgba(255,255,255,0.06); padding: 10px 14px; text-align: left;
+}
+table.comp th {
+  background: rgba(0,240,255,0.04); color: var(--cyan);
+  font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;
+}
+table.comp td { color: var(--muted); }
+table.comp .yes { color: var(--green); font-weight: 700; }
+table.comp .no { color: #f85149; }
+table.comp .partial { color: var(--amber); }
+table.comp tr:hover td { background: rgba(255,255,255,0.02); }
+
+/* QUOTE */
+.quote-block {
+  background: rgba(168,85,247,0.04);
+  border-left: 3px solid var(--purple);
+  padding: 20px 24px; border-radius: 0 8px 8px 0; margin: 24px 0;
+}
+.quote-block p { margin-bottom: 4px; font-style: italic; font-size: 0.95rem; }
+.quote-block .attribution { font-size: 0.8rem; color: var(--dim); font-style: normal; }
+
+/* CODE */
+pre.code-block {
+  background: #030612; border: 1px solid rgba(255,255,255,0.06);
+  padding: 20px; border-radius: 8px; overflow-x: auto;
+  font-family: 'Courier New', Courier, monospace; font-size: 0.8rem;
+  color: #a6accd; margin: 16px 0; line-height: 1.6;
+}
+
+/* CTA */
+.cta-giant { text-align: center; padding: 80px 20px; }
+.cta-giant h2 { font-size: clamp(2rem, 5vw, 3.2rem); margin-bottom: 16px; }
+.cta-giant p { margin: 0 auto 32px; max-width: 640px; }
+.cta-giant .btn-group { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+/* FOOTER */
+footer { padding: 48px 20px 24px; text-align: center; border-top: 1px solid rgba(255,255,255,0.03); }
+footer .f-logo {
+  font-weight: 900; font-size: 1.4rem;
+  background: linear-gradient(135deg, var(--cyan), var(--purple));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  margin-bottom: 8px;
+}
+footer p { font-size: 0.8rem; margin-bottom: 4px; }
+footer .links { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin: 16px 0; }
+footer .links a { color: var(--dim); text-decoration: none; font-size: 0.8rem; }
+footer .links a:hover { color: var(--cyan); }
+footer .dedication {
+  margin-top: 16px; padding: 16px; border-top: 1px solid rgba(255,255,255,0.03);
+  font-size: 0.75rem; color: var(--dim); font-style: italic;
+}
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+.animate { animation: fadeUp 0.6s ease forwards; }
+.animate-d1 { animation-delay: 0.1s; }
+.animate-d2 { animation-delay: 0.2s; }
+.animate-d3 { animation-delay: 0.3s; }
+.animate-d4 { animation-delay: 0.4s; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo-small">JAM</div>
+  <a href="#kernel">El Kernel</a>
+  <a href="#arquitectura">Arquitectura</a>
+  <a href="#roadmap">Roadmap</a>
+  <a href="#comparativa">vs Ecosistema</a>
+  <span class="nav-spacer"></span>
+  <a href="https://github.com/jamkernel/jamkernelp2p" class="nav-cta" target="_blank">GitHub</a>
+</nav>
+
+<section class="hero">
+  <div class="hero-badge">v1.2.0 · BASE KERNEL</div>
+  <h1>
+    Kernel <span class="gradient">P2P Soberano</span><br>
+    Cero Dependencias
+  </h1>
+  <p class="subtitle">
+    Un kernel de comunicación P2P en <strong>un solo archivo (~2.200 líneas)</strong>
+    que funciona en navegadores, Node.js, Deno y Bun sin ninguna dependencia externa.
+    <br><br>
+    Concebido por <strong>Félix Martínez</strong> como una arquitectura original
+    de microkernel P2P — ni wrapper de WebRTC ni adaptación de libp2p.
+  </p>
+  <div class="hero-stats">
+    <div class="stat animate animate-d1"><div class="num">~2.200</div><div class="label">Líneas</div></div>
+    <div class="stat animate animate-d2"><div class="num">0</div><div class="label">Dependencias</div></div>
+    <div class="stat animate animate-d3"><div class="num">4</div><div class="label">Plataformas</div></div>
+    <div class="stat animate animate-d4"><div class="num">1</div><div class="label">Archivo</div></div>
+  </div>
+  <div class="hero-actions">
+    <a href="#kernel" class="btn btn-primary">Conocer el Kernel</a>
+    <a href="#roadmap" class="btn btn-secondary">Ver Roadmap v2.1.0</a>
+  </div>
+</section>
+
+<section class="section" style="padding-top:0;padding-bottom:40px;">
+  <div class="container">
+    <div class="manifesto">
+      <p>
+        Este proyecto lleva el nombre de mi hijo, <strong>José Alejandro Martínez</strong>.
+        JAM no es un acrónimo — <strong>J</strong>osé · <strong>A</strong>lejandro · <strong>M</strong>artínez.
+      </p>
+      <p>
+        Detrás de cada línea de este kernel hay un padre que sueña con un futuro digital
+        donde sus hijos no dependan de corporaciones para comunicarse. Donde la identidad sea soberana.
+        Donde el acceso a la tecnología P2P no requiera una docena de dependencias, un equipo de DevOps,
+        ni el permiso de una plataforma centralizada.
+      </p>
+      <div class="author">— Félix Martínez, 2026</div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="kernel">
+  <div class="container">
+    <div class="section-title">
+      <h2>El <span class="highlight">Kernel</span></h2>
+      <div class="separator"></div>
+      <p>jamkernelp2p v1.2.0 es la base mínima y funcional. Todo lo que necesitas para construir una red P2P cifrada desde cero.</p>
+    </div>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <span class="icon">🔐</span>
+        <h3>Identidad Criptográfica</h3>
+        <p>ECDSA P-256. Cada peer tiene un par de llaves única. El <code>peerId</code> se deriva de la clave pública (SHA-256). Firma digital en cada announce. Sin servidor de autenticación.</p>
+        <span class="tag">Zero-trust</span>
+      </div>
+      <div class="card">
+        <span class="icon">🔒</span>
+        <h3>Cifrado AES-256-GCM</h3>
+        <p>Clave derivada con PBKDF2 (60,000 iteraciones) a partir de contraseña + salt dinámico por sala. Cada sala tiene su propia clave. Purga forense de claves al cerrar sesión.</p>
+        <span class="tag">Militar grade</span>
+      </div>
+      <div class="card">
+        <span class="icon">🌐</span>
+        <h3>WebSocket RFC 6455 Propio</h3>
+        <p>Implementación completa desde cero: framing, masking, handshake, ping/pong, cierre. Servidor y cliente. Sin la librería <code>ws</code> ni ningún paquete npm.</p>
+        <span class="tag">Zero-deps real</span>
+      </div>
+      <div class="card">
+        <span class="icon">📡</span>
+        <h3>MiniSignalServer Embebido</h3>
+        <p>Servidor de señalización WebSocket que arranca con <code>--port</code>. Manejo de salas, anuncio de peers, relay de mensajes y señales WebRTC. No necesita infraestructura externa.</p>
+        <span class="tag">Auto-contenido</span>
+      </div>
+      <div class="card">
+        <span class="icon">🔁</span>
+        <h3>Mesh P2P con ACKs</h3>
+        <p>WebRTC en browser, WebSocket relay en Node.js. Sistema de ACKs con reintentos (hasta 2). Rate limiting 60 msg/s por peer. Blacklist automática anti-DoS.</p>
+        <span class="tag">Producción básica</span>
+      </div>
+      <div class="card">
+        <span class="icon">🧩</span>
+        <h3>Plugins + EventBus</h3>
+        <p>Arquitectura de eventos desacoplada. Sistema de plugins para extender funcionalidad sin modificar el kernel. WorkerPool con cola de tareas y concurrencia.</p>
+        <span class="tag">Extensible</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="arquitectura" style="background: radial-gradient(ellipse at 50% 0%, rgba(0,240,255,0.02), transparent 70%);">
+  <div class="container">
+    <div class="section-title">
+      <h2>Arquitectura <span class="highlight">del Microkernel</span></h2>
+      <div class="separator"></div>
+      <p>Un diseño en capas donde cada componente es independiente, intercambiable y seguro. Inspirado en kernels de sistemas operativos.</p>
+    </div>
+
+    <div class="arch-diagram">
+ <span class="dim">┌──────────────────────────────────────────────────────────────────────┐</span>
+ <span class="dim">│</span>  <span class="highlight">JAMKernelP2P</span> (Orquestador) <span class="dim">·············································│</span>
+ <span class="dim">├──────────────┬──────────────┬──────────────┬──────────────────────┤</span>
+ <span class="dim">│</span>  <span class="green">IDENTITY</span>     <span class="dim">│</span>  <span class="green">MESH</span>         <span class="dim">│</span>  <span class="green">CRYPTO</span>       <span class="dim">│</span>  <span class="green">PERSISTENCE</span>        <span class="dim">│</span>
+ <span class="dim">│</span>  ECDSA P-256  <span class="dim">│</span>  Mesh Adapter <span class="dim">│</span>  AES-256-GCM  <span class="dim">│</span>  BatchStorage       <span class="dim">│</span>
+ <span class="dim">│</span>  SHA-256      <span class="dim">│</span>  ACKs/Retry   <span class="dim">│</span>  PBKDF2(60K)  <span class="dim">│</span>  IndexedDB / JSON   <span class="dim">│</span>
+ <span class="dim">│</span>  peerId       <span class="dim">│</span>  Rate Limit   <span class="dim">│</span>  Purga RAM    <span class="dim">│</span>  Mutex + Backoff    <span class="dim">│</span>
+ <span class="dim">├──────────────┴──────────────┴──────────────┴──────────────────────┤</span>
+ <span class="dim">│</span>  <span class="highlight">CAPA DE TRANSPORTE</span> <span class="dim">······················································│</span>
+ <span class="dim">│</span>  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐               <span class="dim">│</span>
+ <span class="dim">│</span>  │ Browser  │  │ Node.js  │  │  Deno    │  │   Bun    │               <span class="dim">│</span>
+ <span class="dim">│</span>  │ WebRTC   │  │WebSocket │  │WebSocket │  │WebSocket │               <span class="dim">│</span>
+ <span class="dim">│</span>  │DataChannel│  │ +Relay   │  │ +Relay   │  │ +Relay   │               <span class="dim">│</span>
+ <span class="dim">│</span>  └──────────┘  └──────────┘  └──────────┘  └──────────┘               <span class="dim">│</span>
+ <span class="dim">├──────────────────────────────────────────────────────────────────────┤</span>
+ <span class="dim">│</span>  <span class="accent">MiniSignalServer</span> (embebido, RFC 6455 puro, cero dependencias)      <span class="dim">│</span>
+ <span class="dim">├──────────────────────────┬───────────────────────────────────────────┤</span>
+ <span class="dim">│</span>  <span class="green">INFRAESTRUCTURA</span>        <span class="dim">│</span>  <span class="green">LOGGING + PLUGINS</span>                          <span class="dim">│</span>
+ <span class="dim">│</span>  EventBus / Cache /      <span class="dim">│</span>  StructuredLogger con rotación               <span class="dim">│</span>
+ <span class="dim">│</span>  Mutex / WorkerPool      <span class="dim">│</span>  PluginManager + JAMPlugin                   <span class="dim">│</span>
+ <span class="dim">└──────────────────────────┴───────────────────────────────────────────┘</span>
+    </div>
+
+    <div class="grid grid-4">
+      <div class="card">
+        <span class="icon">🧬</span>
+        <h3>Microkernel</h3>
+        <p>Orquestador mínimo. Drivers como adaptadores de plataforma. Servicios como módulos independientes. Inspirado en sistemas operativos.</p>
+        <span class="tag">Único en P2P</span>
+      </div>
+      <div class="card">
+        <span class="icon">🔌</span>
+        <h3>Plataforma como Driver</h3>
+        <p>BrowserAdapter, NodeAdapter, DenoAdapter, BunAdapter. Todos implementan la misma interfaz. El kernel no sabe ni le importa qué plataforma corre.</p>
+        <span class="tag">4 en 1</span>
+      </div>
+      <div class="card">
+        <span class="icon">🛡️</span>
+        <h3>Seguridad desde el Origen</h3>
+        <p>ECDSA + AES-256-GCM + PBKDF2. peerId derivado de clave pública. Firma en cada announce. Rate limiting y blacklist nativos.</p>
+        <span class="tag">Zero-trust</span>
+      </div>
+      <div class="card">
+        <span class="icon">📦</span>
+        <h3>Un Solo Archivo</h3>
+        <p>No hay node_modules. No hay bundlers. No hay npm install. Todo el kernel en un archivo. Cópialo, impórtalo, funciona.</p>
+        <span class="tag">Literally one file</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="roadmap" style="background: radial-gradient(ellipse at 50% 0%, rgba(168,85,247,0.03), transparent 70%);">
+  <div class="container">
+    <div class="section-title">
+      <h2>Roadmap: <span class="highlight">v2.1.0</span> Omni-Kernel</h2>
+      <div class="separator"></div>
+      <p style="color:var(--purple);font-weight:600;">
+        Próximo lanzamiento — transforma el kernel simple en un sistema de producción completo.
+      </p>
+      <p style="font-size:0.85rem;margin-top:8px;">
+        El kernel v1.2.0 actual es la base sólida. La v2.1.0 añade las capas de producción
+        sin cambiar la arquitectura — solo extendiendo lo que ya existe.
+      </p>
+    </div>
+
+    <div class="roadmap-item">
+      <div class="phase phase-now">v1.2.0</div>
+      <div class="content">
+        <h4>Base del Kernel</h4>
+        <p>Zero-deps · RFC 6455 · ECDSA · AES-256 · Mesh P2P · MiniSignalServer · CLI · ACKs · Rate limiting · Plugins · 4 plataformas</p>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="phase phase-next">v2.1.0</div>
+      <div class="content">
+        <h4>Omni-Kernel: Producción</h4>
+        <p>
+          <strong>Autenticación por token</strong> · <strong>Cluster mode real</strong> (workers vía IPC) ·
+          <strong>Canales virtuales</strong> (API unificada WebRTC + WebSocket) ·
+          <strong>Purga forense mejorada</strong> · <strong>Idle timeout</strong> (5 min) ·
+          <strong>Payload máximo 256KB</strong> · <strong>Reconexión automática</strong> al signal server ·
+          <strong>Documentación profesional</strong> (manual, plugins, troubleshooting)
+        </p>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="phase phase-future">v3.0</div>
+      <div class="content">
+        <h4>Motor Híbrido Node.js + Rust</h4>
+        <p>WebSocket nativo en Rust · Nat traversal (TURN) · DHT ligero para descubrimiento · Forward secrecy con claves efímeras · Benchmarks 100.000 msg/s</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="comparativa">
+  <div class="container">
+    <div class="section-title">
+      <h2>jamkernelp2p <span class="highlight">vs</span> el Ecosistema</h2>
+      <div class="separator"></div>
+      <p>Comparación directa con las soluciones P2P existentes. La arquitectura del kernel ocupa un nicho que nadie más ha llenado.</p>
+    </div>
+
+    <div style="overflow-x:auto;">
+    <table class="comp">
+      <thead>
+        <tr>
+          <th>Característica</th>
+          <th style="color:var(--purple);">jamkernelp2p</th>
+          <th>libp2p</th>
+          <th>PeerJS</th>
+          <th>simple-peer</th>
+          <th>Trystero</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>1 solo archivo</td><td class="yes">Sí</td><td class="no">100+</td><td class="no">5+</td><td class="no">3+</td><td class="no">31</td></tr>
+        <tr><td>Cero dependencias npm</td><td class="yes">Sí</td><td class="no">50+</td><td class="no">10+</td><td class="no">5+</td><td class="yes">0*</td></tr>
+        <tr><td>Browser + Node.js + Deno + Bun</td><td class="yes">4/4</td><td class="partial">2/4</td><td class="partial">2/4</td><td class="partial">2/4</td><td class="partial">3/4</td></tr>
+        <tr><td>Señalización embebida</td><td class="yes">Sí</td><td class="no">Separada</td><td class="no">Separada</td><td class="no">No</td><td class="no">Ext.</td></tr>
+        <tr><td>Identidad ECDSA nativa</td><td class="yes">Sí</td><td class="partial">Opcional</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
+        <tr><td>TLS nativo (WSS)</td><td class="yes">Sí</td><td class="no">No</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
+        <tr><td>ACKs de entrega</td><td class="yes">Sí</td><td class="partial">Opcional</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
+        <tr><td>Rate limiting anti-DoS</td><td class="yes">Sí</td><td class="partial">Plugin</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
+        <tr><td>Logging estructurado</td><td class="yes">Sí</td><td class="no">No</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
+        <tr><td>Persistencia de estado</td><td class="yes">Sí</td><td class="no">No</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
+        <tr><td>Plugins</td><td class="yes">Sí</td><td class="yes">Sí</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
+        <tr><td>CLI standalone</td><td class="yes">Sí</td><td class="no">No</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
+        <tr><td>Purga forense de claves</td><td class="yes">Sí</td><td class="no">No</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
+        <tr><td>Zero-config para arrancar</td><td class="yes">Sí</td><td class="no">No</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
+        <tr style="border-top:2px solid rgba(168,85,247,0.3);">
+          <td style="font-weight:700;color:var(--white);">Puntuación</td>
+          <td style="font-weight:800;color:var(--purple);font-size:1.1rem;">14/14</td>
+          <td style="color:var(--muted);">7/14</td>
+          <td style="color:var(--muted);">3/14</td>
+          <td style="color:var(--muted);">3/14</td>
+          <td style="color:var(--muted);">4/14</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="quote-block">
+      <p>
+        "jamkernelp2p ocupa un nicho que nadie había ocupado antes:
+        el punto donde 'infraestructura P2P' se encuentra con 'un solo archivo que funciona'.
+        No hay nada entre libp2p (potente pero monstruoso) y simple-peer (mínimo pero sin nada alrededor)."
+      </p>
+    </div>
+
+    <div class="grid grid-2" style="margin-top:40px;">
+      <div class="card" style="border-color:rgba(168,85,247,0.15);">
+        <span class="icon">🔬</span>
+        <h3>Investigación</h3>
+        <p>Más de 20 proyectos analizados contra 14 criterios. jamkernelp2p obtiene 14/14. libp2p obtiene 7/14. Ningún otro proyecto combina un solo archivo, cero dependencias, identidad ECDSA, señalización embebida y capacidades de producción.</p>
+      </div>
+      <div class="card" style="border-color:rgba(168,85,247,0.15);">
+        <span class="icon">🏆</span>
+        <h3>Conclusión</h3>
+        <p>La combinación de microkernel P2P + cero dependencias + un solo archivo + servidor de señalización embebido + capacidades de producción <strong>no existe en ningún otro proyecto del ecosistema</strong>. No es una evolución — es un hallazgo arquitectónico.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="cta-giant">
+  <div class="container">
+    <h2>Próximo: <span class="highlight">v2.1.0 Omni-Kernel</span></h2>
+    <p>
+      El kernel simple es la base. La v2.1.0 llevará todo a producción.
+      <br>
+      Sigue el proyecto en GitHub y sé parte de esta arquitectura.
+    </p>
+    <div class="btn-group">
+      <a href="https://github.com/jamkernel/jamkernelp2p" class="btn btn-primary" target="_blank">GitHub</a>
+      <a href="https://github.com/jamkernel/jamkernelp2p/blob/main/README.md" class="btn btn-secondary">Documentación</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="f-logo">JAM</div>
+  <p>jamkernelp2p v1.2.0 · Kernel P2P Soberano</p>
+  <div class="links">
+    <a href="https://github.com/jamkernel/jamkernelp2p">GitHub</a>
+    <a href="mailto:jamkernelp2p@gmail.com">Contacto</a>
+  </div>
+  <div class="dedication">
+    Dedicado a José Alejandro Martínez — motor e inspiración
+  </div>
+</footer>
+
+</body>
+</html>
