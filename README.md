@@ -1,88 +1,247 @@
-# ⚛️ jamkernelp2p · v1.0
-
-## Núcleo P2P Soberano — Código Abierto
-
-[![Version](https://img.shields.io/badge/version-1.0-blue.svg)](https://github.com/jamkernel/jamkernelp2p)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Platform](https://img.shields.io/badge/platform-Node.js%20%7C%20Deno%20%7C%20Bun%20%7C%20Web-blue)](https://jamkernel.github.io)
-[![Telegram](https://img.shields.io/badge/Telegram-@jamkernelp2p-blue.svg)](https://t.me/jamkernelp2p)
-[![Telegram Channel](https://img.shields.io/badge/Telegram-Canal-blue.svg)](https://t.me/boost/jamkernelp2p_proyecto)
-
----
-
-**jamkernelp2p** es un núcleo de comunicación P2P en **un solo archivo JavaScript (~3500 líneas)** que funciona en **navegadores, Node.js, Deno y Bun** sin **ninguna dependencia externa**.
-
-Creado por **Félix Martínez** y dedicado a su hijo José Alejandro Martínez — de ahí el nombre **JAM**.
-
-A diferencia de libp2p, PeerJS o simple-peer, jamkernelp2p es **autocontenido** : copias el archivo, lo importas, y tienes una red mesh cifrada con identidad criptográfica, servidor de señalización embebido, logging estructurado, TLS, clustering, y persistencia de estado.
-
-> 🚀 **El Motor Híbrido (Node.js + Rust)** — una evolución natural del núcleo — está en fase de investigación y desarrollo. Su lanzamiento está previsto como la versión **`2.0`** del ecosistema JAM. Consulta la [hoja de ruta](#hoja-de-ruta) para más información.
-
----
-
-## 🌌 El Ecosistema JAM
-
-### 🏛️ jamkernelp2p — v1.0 (Actual)
-
-La base. Un solo archivo JavaScript para crear redes mesh cifradas sin dependencias.
-
-- ✅ **1 archivo** · **0 dependencias**
-- ✅ **4 plataformas** (Web/Node/Deno/Bun)
-- ✅ **AES‑256‑GCM** con autenticación
-- ✅ **Anti‑DoS** por rate limiting (12 msg/seg)
-- ✅ **Purga forense** de claves en RAM
-- ✅ **Identidad ECDSA** P‑256 nativa
-
-[➡️ Ver documentación completa](https://jamkernel.github.io)
-
-### 🚀 Motor Híbrido — v2.0 (En desarrollo)
-
-La evolución del núcleo P2P: combina la flexibilidad de Node.js con el rendimiento de Rust para ejecutar agentes de IA, tareas programadas y lógica de negocio en el borde.
-
-- ✅ **Agentes IA** en Rust
-- ✅ **Scheduler** con cron
-- ✅ **Tools nativas** (funciones en Rust)
-- ✅ **Bridge Node.js ↔ Rust** en tiempo real
-
-🔜 **Próximamente** — consulta la [hoja de ruta](#hoja-de-ruta).
+<div align="center">
+  <h1>jamkernelp2p v1.2.0</h1>
+  <p><strong>J</strong>osé <strong>A</strong>lejandro <strong>M</strong>artínez</p>
+  <p><em>Base mínima · Arquitectura pura · Cero dependencias</em></p>
+  <p>
+    <a href="#que-es">¿Qué es?</a> ·
+    <a href="#arquitectura">Arquitectura</a> ·
+    <a href="#quick-start">Quick Start</a> ·
+    <a href="#api">API</a> ·
+    <a href="#roadmap">Roadmap v2.1.0</a> ·
+    <a href="#licencia">Licencia</a>
+  </p>
+  <p>
+    <a href="https://github.com/jamkernel/jamkernelp2p" target="_blank">GitHub</a> ·
+    <a href="mailto:jamkernelp2p@gmail.com">Contacto</a>
+  </p>
+  <br>
+  <pre>node jamkernelp2p.js --room mi-sala --password clave-segura</pre>
+  <br>
+</div>
 
 ---
 
-## 🔐 Características del Núcleo (v1.0)
+## ¿Qué es?
 
-### Cifrado Militar
+**jamkernelp2p** es un kernel de comunicación P2P en **un solo archivo (~2.200 líneas)** que funciona en **navegadores, Node.js, Deno y Bun** sin **ninguna dependencia externa**.
 
-- **AES‑256‑GCM** con autenticación
-- Derivación **PBKDF2** (60.000 iteraciones)
-- **Sal dinámica** por sala
-- **Identidad ECDSA** P‑256 nativa
+Creado por **Félix Martínez** y dedicado a su hijo José Alejandro Martínez.
 
-### Seguridad Integrada
+No es un wrapper de WebRTC ni una adaptación de libp2p. Es una **arquitectura original** de microkernel P2P con capas de plataforma, identidad criptográfica, cifrado, transporte mesh y señalización embebida — todo en un solo archivo autocontenido.
 
-- **Anti‑DoS** por rate limiting (12 msg/seg)
-- **Lista negra** automática
-- **Sanitización** de entradas
-- **Blacklist** de peers maliciosos
+### Filosofía
 
-### Purga de Memoria
+> "La verdadera descentralización no es un protocolo. Es la capacidad de cualquier persona, en cualquier lugar, con cualquier dispositivo, de comunicarse sin pedir permiso."
 
-- **Eliminación forense** de claves en RAM
-- **Garbage Collection** forzado
-- **Nullificación** de referencias
+## Arquitectura
 
-### Almacenamiento Local
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    JAMKernelP2P (Orquestador)                 │
+├─────────────┬──────────────┬──────────────┬──────────────────┤
+│  Identity   │    Mesh      │    Crypto    │  Persistence     │
+│  (ECDSA     │  (SecureJam  │  (AES-256    │  (BatchStorage   │
+│   P-256)    │   Mesh Adap) │   GCM +      │   + estado)      │
+│             │              │   PBKDF2)    │                  │
+├─────────────┴──────────────┴──────────────┴──────────────────┤
+│                  Capa de Transporte                           │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
+│  │ Browser  │  │ Node.js  │  │  Deno    │  │   Bun    │    │
+│  │ (WebRTC) │  │(WebSocket│  │(WebSocket│  │(WebSocket│    │
+│  │          │  │ +Relay)  │  │ +Relay)  │  │ +Relay)  │    │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘    │
+├──────────────────────────────────────────────────────────────┤
+│            MiniSignalServer (embebido, RFC 6455)              │
+│  WebSocket signaling + mesh relay + auth + rate limit        │
+└──────────────────────────────────────────────────────────────┘
+```
 
-- **IndexedDB** con mutex antibloqueo
-- **Backoff exponencial** en fallos
-- **Límite de cola** (1000 items)
+Cada capa es independiente. Puedes reemplazar el MiniSignalServer por un relay externo sin tocar el mesh, la identidad, ni el cifrado.
+
+### Componentes del Kernel
+
+| Clase | Función |
+|-------|---------|
+| `IPlatform` / adapters | Abstracción multiplataforma (Browser, Node, Deno, Bun) |
+| `EventBus` | Sistema de eventos asíncrono, desacopla componentes |
+| `JamCrypto` | AES-256-GCM + PBKDF2(60K) + ECDSA P-256 |
+| `IdentityManager` | Claves ECDSA, peerId = SHA-256(publicKey) |
+| `MiniSignalServer` | Signaling WebSocket RFC 6455 zero-deps |
+| `SecureJamMeshAdapter` | Mesh P2P con WebRTC + relay + ACKs + rate limiting |
+| `BatchStorage` | Persistencia (IndexedDB / archivo JSON) |
+| `WorkerPool` | Cola de tareas con concurrencia limitada |
+| `PluginManager` | Sistema de plugins extensible |
+| `StructuredLogger` | Logging con niveles y rotación |
+
+## Lo que hace ahora (v1.2.0)
+
+- **0 dependencias externas** — solo APIs nativas de cada plataforma
+- **WebSocket RFC 6455 propio** — servidor + cliente + framing desde cero
+- **Cifrado real** — AES-256-GCM + PBKDF2(60K) + ECDSA P-256
+- **Mesh P2P** — WebRTC browser-to-browser; relay WebSocket en Node.js
+- **Servidor de señalización embebido** — arranca con `--port`
+- **Anti-DoS** — rate limiting 60 msg/s + blacklist automática
+- **ACKs con reintentos** — entrega confirmada (hasta 2 reintentos)
+- **CLI completo** — `--port --room --password --tls-key --tls-cert --log-file --log-level --help`
+- **Multiplataforma** — browser, Node.js, Deno, Bun
+- **Persistencia de identidad** — ECDSA se guarda automáticamente
+- **Plugins** — sistema de extensiones vía `JAMPlugin`
+
+## Lo que viene: v2.1.0 (próximamente)
+
+> **Lanzamiento en las próximas semanas.** Esta versión eleva el kernel a capacidades de producción con nuevas funcionalidades y pulido profesional.
+
+| Mejora | Estado |
+|--------|--------|
+| **Omni-Kernel branding** | Nombre unificado: JAM Omni-Kernel |
+| **Autenticación por token** | `--token` para salas con acceso restringido |
+| **Cluster mode real** | Distribución de peers entre workers vía IPC |
+| **Canales virtuales** | API unificada WebRTC DataChannel + WebSocket relay |
+| **Purga forense mejorada** | Sobrescritura de claves en RAM al cerrar sesión |
+| **Idle timeout** | Desconexión automática por inactividad (5 min) |
+| **Límite de payload** | 256KB máximo por mensaje |
+| **Reconexión automática** | Reintento periódico al signal server |
+| **Documentación completa** | Manual, plugins, troubleshooting |
 
 ---
 
-## 🚀 Uso Rápido (v1.0)
-
-### Instalación
+## Quick Start
 
 ```bash
-# Clona o descarga el repositorio
-git clone https://github.com/jamkernel/jamkernelp2p.git
-cd jamkernelp2p
+# Peer + servidor de señalización + mesh (todo en uno)
+node jamkernelp2p.js --room mi-sala --password clave-segura
+
+# Con puerto específico
+node jamkernelp2p.js --port 9090 --room privado --password clave
+
+# TLS para producción
+node jamkernelp2p.js --tls-key cert.pem --tls-cert cert.pem --port 443
+
+# Logging
+node jamkernelp2p.js --log-file jam.log --log-level info --room test --password 12345678
+
+# Ayuda
+node jamkernelp2p.js --help
+```
+
+### Opciones CLI
+
+| Flag | Default | Descripción |
+|------|---------|-------------|
+| `--port N` | `0` (aleatorio) | Puerto del servidor de señalización |
+| `--room X` | — | Sala a la que unirse |
+| `--password X` | — | Contraseña de cifrado (mín. 8 caracteres) |
+| `--tls-key FILE` | — | Clave TLS para WSS |
+| `--tls-cert FILE` | — | Certificado TLS para WSS |
+| `--log-file FILE` | — | Archivo de log (JSON lines) |
+| `--log-level L` | `warn` | `error`, `warn`, `info`, `debug` |
+| `--host H` | `0.0.0.0` | Host del servidor |
+| `--help`, `-h` | — | Muestra ayuda |
+
+---
+
+## API
+
+```js
+const { JAMOmni } = require('./jamkernelp2p.js');
+
+// Creación auto-configurada
+const kernel = await JAMOmni.createKernel({});
+
+// Esperar a que la identidad esté lista
+const peerId = await kernel.whenIdentityReady();
+console.log('Peer ID:', peerId);
+
+// Escuchar mensajes
+kernel.events.on('peer:message', ({ peerId, message }) => {
+    console.log(`${peerId}:`, message);
+});
+
+// Unirse a una sala cifrada
+await kernel.startSession('mi-sala', 'mi-clave');
+
+// Transmitir a todos
+await kernel.broadcast({ text: 'Hola mundo P2P!' });
+
+// Enviar a un peer específico
+await kernel.sendTo(peerId, { text: 'Mensaje directo' });
+
+// Cerrar sesión (purga de claves)
+await kernel.closeSession();
+```
+
+### Plugins
+
+```js
+const { JAMPlugin } = require('./jamkernelp2p.js');
+
+class MiPlugin extends JAMPlugin {
+    async init(config) {
+        this.events.on('peer:message', (msg) => {
+            this.log.info('Plugin:', msg);
+        });
+    }
+}
+
+kernel.registerPlugin('mi-plugin', MiPlugin);
+await kernel.loadPlugin('mi-plugin', { opcion: 'valor' });
+```
+
+---
+
+## Comparativa vs Ecosistema
+
+| Característica | jamkernelp2p | libp2p | PeerJS | simple-peer |
+|---------------|:---:|:------:|:------:|:-----------:|
+| Archivos | **1** | 100+ | 5+ | 3+ |
+| Dependencias | **0** | 50+ | 10+ | 5+ |
+| Browser + Node.js | ✅ | ✅ | ✅ | ✅ |
+| Deno + Bun | ✅ | ❌ | ❌ | ❌ |
+| Señalización embebida | ✅ | ❌ | ❌ | ❌ |
+| Identidad ECDSA nativa | ✅ | Opcional | ❌ | ❌ |
+| TLS nativo (WSS) | ✅ | ❌ | ❌ | ❌ |
+| Logging estructurado | ✅ | ❌ | ❌ | ❌ |
+| ACKs de entrega | ✅ | Opcional | ❌ | ❌ |
+| Rate limiting anti-DoS | ✅ | Plugin | ❌ | ❌ |
+| Persistencia de estado | ✅ | ❌ | ❌ | ❌ |
+| Plugins | ✅ | ✅ | ❌ | ❌ |
+| Zero-config CLI | ✅ | ❌ | ❌ | ❌ |
+
+---
+
+## Problemas Comunes
+
+### El peer no conecta al servidor de señalización
+
+Verificar puerto abierto y firewall. El servidor muestra el puerto en consola al arrancar.
+
+### "Firma inválida" en announce
+
+La identidad ECDSA no coincide con la clave pública enviada. O el peer fue comprometido o hay un error de clave. Limpiar `mesh._peerPublicKeys` si es falso positivo.
+
+### Rate limiting activado
+
+60 msg/s por peer. Si es falso positivo (ej. transferencia rápida de datos), ajustar:
+```js
+kernel.mesh.MAX_MESSAGES_PER_SECOND = 120;
+```
+
+### La identidad se pierde al recargar el navegador
+
+La identidad se persiste en BatchStorage. Si el usuario borra datos del sitio, genera una nueva. Para persistencia forzada, exportar con `identity.toJSON()` y guardar en localStorage.
+
+---
+
+## Licencia
+
+**GNU GPL v3** — Eres libre de usar, modificar y distribuir este software bajo los términos de GNU GPL v3.
+
+Para uso en productos propietarios, contactar a **jamkernelp2p@gmail.com**.
+
+---
+
+<div align="center">
+  <sub>Creado por <strong>Félix Martínez</strong> · 2026</sub>
+  <br>
+  <sub>Dedicado a José Alejandro Martínez — motor e inspiración ❤️</sub>
+</div>
