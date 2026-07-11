@@ -105,6 +105,23 @@ Cada capa es independiente. Puedes reemplazar el MiniSignalServer por un relay e
 
 ---
 
+## Instalación
+
+No necesitas `npm install`. Este proyecto tiene **cero dependencias**. Solo descarga el archivo y ejecútalo:
+
+```bash
+# Opción 1: Desde GitHub (sin clonar)
+curl -O https://raw.githubusercontent.com/jamkernel/jamkernelp2p/main/jamkernelp2p.js
+node jamkernelp2p.js --room mi-sala --password clave-segura
+
+# Opción 2: Clonar el repo
+git clone https://github.com/jamkernel/jamkernelp2p.git
+cd jamkernelp2p
+node jamkernelp2p.js --room mi-sala --password clave-segura
+```
+
+El `package.json` incluido es solo para metadatos — no hay dependencias que instalar.
+
 ## Quick Start
 
 ```bash
@@ -185,6 +202,64 @@ class MiPlugin extends JAMPlugin {
 
 kernel.registerPlugin('mi-plugin', MiPlugin);
 await kernel.loadPlugin('mi-plugin', { opcion: 'valor' });
+```
+
+---
+
+## Uso en otras plataformas
+
+### Navegador (Browser)
+
+```html
+<script src="jamkernelp2p.js"></script>
+<script>
+(async () => {
+  const kernel = await window.JAM.Omni.createKernel({
+    signalUrl: 'ws://servidor:puerto'
+  });
+
+  const peerId = await kernel.whenIdentityReady();
+  console.log('Peer ID:', peerId);
+
+  kernel.events.on('peer:message', ({ peerId, message }) => {
+    console.log(`${peerId}:`, message);
+  });
+
+  await kernel.startSession('mi-sala', 'mi-clave');
+  await kernel.broadcast({ text: 'Hola desde el navegador!' });
+})();
+</script>
+```
+
+### Deno
+
+```ts
+// deno run --allow-net --allow-write --allow-read jamkernelp2p.js
+import { JAMOmni } from './jamkernelp2p.js';
+
+const kernel = await JAMOmni.createKernel({
+  room: 'mi-sala',
+  password: 'clave-segura'
+});
+
+const peerId = await kernel.whenIdentityReady();
+console.log('Peer ID:', peerId);
+```
+
+### Bun
+
+```bash
+bun jamkernelp2p.js --room mi-sala --password clave-segura
+```
+
+```ts
+// Uso programático en Bun
+import { JAMOmni } from './jamkernelp2p.js';
+
+const kernel = await JAMOmni.createKernel({
+  room: 'mi-sala',
+  password: 'clave-segura'
+});
 ```
 
 ---
