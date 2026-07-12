@@ -5,6 +5,7 @@
   <p>
     <a href="#que-es">¿Qué es?</a> ·
     <a href="#arquitectura">Arquitectura</a> ·
+    <a href="#versiones-disponibles">Versiones</a> ·
     <a href="#quick-start">Quick Start</a> ·
     <a href="#api">API</a> ·
     <a href="#roadmap">Roadmap v2.1.0</a> ·
@@ -23,7 +24,7 @@
 
 ## ¿Qué es?
 
-**jamkernelp2p** es un kernel de comunicación P2P en **un solo archivo (~2.200 líneas)** que funciona en **navegadores, Node.js, Deno y Bun** sin **ninguna dependencia externa**.
+**jamkernelp2p** es un kernel de comunicación P2P en **un solo archivo (~2.900 líneas)** que funciona en **navegadores, Node.js, Deno y Bun** sin **ninguna dependencia externa**.
 
 Creado por **Félix Martínez** y dedicado a su hijo José Alejandro Martínez.
 
@@ -64,10 +65,10 @@ Cada capa es independiente. Puedes reemplazar el MiniSignalServer por un relay e
 |-------|---------|
 | `IPlatform` / adapters | Abstracción multiplataforma (Browser, Node, Deno, Bun) |
 | `EventBus` | Sistema de eventos asíncrono, desacopla componentes |
-| `JamCrypto` | AES-256-GCM + PBKDF2(60K) + ECDSA P-256 |
+| `JamCrypto` | AES-256-GCM + PBKDF2(600K) + ECDSA P-256 + ECDH forward secrecy |
 | `IdentityManager` | Claves ECDSA, peerId = SHA-256(publicKey) |
 | `MiniSignalServer` | Signaling WebSocket RFC 6455 zero-deps |
-| `SecureJamMeshAdapter` | Mesh P2P con WebRTC + relay + ACKs + rate limiting |
+| `SecureJamMeshAdapter` | Mesh P2P con WebRTC + relay + ACKs + ratchet + LAN discovery + anti-replay + heartbeat |
 | `BatchStorage` | Persistencia (IndexedDB / archivo JSON) |
 | `WorkerPool` | Cola de tareas con concurrencia limitada |
 | `PluginManager` | Sistema de plugins extensible |
@@ -77,7 +78,11 @@ Cada capa es independiente. Puedes reemplazar el MiniSignalServer por un relay e
 
 - **0 dependencias externas** — solo APIs nativas de cada plataforma
 - **WebSocket RFC 6455 propio** — servidor + cliente + framing desde cero
-- **Cifrado real** — AES-256-GCM + PBKDF2(60K) + ECDSA P-256
+- **Cifrado real** — AES-256-GCM + PBKDF2(600K) + ECDSA P-256
+- **Forward secrecy (ECDH + ratchet)** — Intercambio de claves efímeras P-256 + ratchet que avanza por mensaje
+- **LAN Discovery** — Descubrimiento de peers en red local vía UDP broadcast (0 dependencias)
+- **Anti-replay** — Ventana deslizante de 64 secuencias evita reinyección de paquetes
+- **Heartbeat** — Keepalive cada 30s al servidor de señalización
 - **Mesh P2P** — WebRTC browser-to-browser; relay WebSocket en Node.js
 - **Servidor de señalización embebido** — arranca con `--port`
 - **Anti-DoS** — rate limiting 60 msg/s + blacklist automática
@@ -105,16 +110,52 @@ Cada capa es independiente. Puedes reemplazar el MiniSignalServer por un relay e
 
 ---
 
+## Versiones disponibles
+
+| Versión | Archivo | Tamaño | Descripción | Descarga |
+|---------|---------|--------|-------------|----------|
+| **v1.0** | `jamkernelp2p-v1.0.js` | 84 KB | Kernel original simple: AES-256 + ECDSA + WebSocket propio + mesh básico | [Descargar](https://raw.githubusercontent.com/jamkernel/jamkernelp2p/main/jamkernelp2p-v1.0.js) |
+| **v1.2.0** | `jamkernelp2p.js` | 115 KB | Kernel actual: + ECDH forward secrecy + ratchet + LAN discovery + heartbeat + anti-replay + 19 bugs corregidos | [Descargar](https://raw.githubusercontent.com/jamkernel/jamkernelp2p/main/jamkernelp2p.js) |
+| **v2.1.0** | — | — | Próxima versión: token auth, cluster mode real, canales virtuales, purga forense mejorada | Roadmap abajo |
+
+### ¿Cuál usar?
+
+- **v1.0** — Ideal para aprendizaje, auditoría de código, o sistemas embebidos donde cada KB importa. Menos features, más simple de leer.
+- **v1.2.0** — Producción. Toda la seguridad (forward secrecy, anti-replay), descubrimiento LAN, heartbeat, y 19 bugs corregidos respecto a v1.0.
+- **v2.1.0** — Cuando esté lista: autenticación por token, cluster real, canales virtuales unificados.
+
+### Diferencias clave v1.0 → v1.2.0
+
+| Aspecto | v1.0 | v1.2.0 |
+|---------|:----:|:------:|
+| Líneas | ~2.200 | ~2.900 |
+| PBKDF2 iteraciones | 60.000 | 600.000 |
+| Rate limit | 12 msg/s | 60 msg/s |
+| Forward secrecy (ECDH) | ❌ | ✅ |
+| Ratchet de claves | ❌ | ✅ |
+| LAN Discovery (UDP) | ❌ | ✅ |
+| Heartbeat / keepalive | ❌ | ✅ |
+| Anti-replay (ventana 64) | ❌ | ✅ |
+| Bugs conocidos | Varios | 19 corregidos |
+| TLS con fallback HTTP | ❌ | ✅ |
+| CLI con validación | Parcial | Completa |
+
+---
+
 ## Instalación
 
-No necesitas `npm install`. Este proyecto tiene **cero dependencias**. Solo descarga el archivo y ejecútalo:
+No necesitas `npm install`. Este proyecto tiene **cero dependencias**. Solo descarga el archivo que quieras y ejecútalo:
 
 ```bash
-# Opción 1: Desde GitHub (sin clonar)
+# v1.2.0 (actual)
 curl -O https://raw.githubusercontent.com/jamkernel/jamkernelp2p/main/jamkernelp2p.js
 node jamkernelp2p.js --room mi-sala --password clave-segura
 
-# Opción 2: Clonar el repo
+# v1.0 (kernel original)
+curl -O https://raw.githubusercontent.com/jamkernel/jamkernelp2p/main/jamkernelp2p-v1.0.js
+node jamkernelp2p-v1.0.js --room mi-sala --password clave-segura
+
+# Clonar el repo completo
 git clone https://github.com/jamkernel/jamkernelp2p.git
 cd jamkernelp2p
 node jamkernelp2p.js --room mi-sala --password clave-segura
@@ -274,6 +315,10 @@ const kernel = await JAMOmni.createKernel({
 | Deno + Bun | ✅ | ❌ | ❌ | ❌ |
 | Señalización embebida | ✅ | ❌ | ❌ | ❌ |
 | Identidad ECDSA nativa | ✅ | Opcional | ❌ | ❌ |
+| Forward secrecy (ECDH + ratchet) | ✅ | Opcional | ❌ | ❌ |
+| LAN Discovery (UDP) | ✅ | ❌ | ❌ | ❌ |
+| Anti-replay | ✅ | ❌ | ❌ | ❌ |
+| Heartbeat / keepalive | ✅ | ❌ | ❌ | ❌ |
 | TLS nativo (WSS) | ✅ | ❌ | ❌ | ❌ |
 | Logging estructurado | ✅ | ❌ | ❌ | ❌ |
 | ACKs de entrega | ✅ | Opcional | ❌ | ❌ |
