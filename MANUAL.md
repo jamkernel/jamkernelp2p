@@ -784,7 +784,9 @@ El servidor automáticamente usa HTTPS en lugar de HTTP, y WSS en lugar de WS. L
 
 ---
 
-## 4. Nuevas características v1.2.0
+## 4. Características v1.2.0
+
+> Respecto a v1.0 (kernel original), v1.2.0 agrega: **ECDH forward secrecy**, **ratchet de claves**, **LAN discovery**, **heartbeat**, **anti-replay**, **PBKDF2(600K)** y **19 bugs corregidos**. Ver README para tabla comparativa detallada.
 
 ### Autenticación ECDSA + Token
 
@@ -819,6 +821,81 @@ Protección contra abusos en el servidor de señalización:
 kernel.mesh.MAX_MESSAGES_PER_SECOND = 30;    // default: 60
 kernel.mesh.BLACKLIST_DURATION_MS = 120000;  // default: 60000 (1 min)
 ```
+
+### ECDH + Ratchet (Forward Secrecy)
+
+Cuando dos peers se conectan, intercambian claves efímeras ECDH P-256. La clave compartida se usa como semilla para un **ratchet** que avanza con cada mensaje:
+
+```
+Peer A                          Peer B
+  │  ECDH public key ─────────►   │
+  │  ◄───────── ECDH public key   │
+  │                               │
+  │  shared = ECDH(privA, pubB)   │
+  │  key0 = SHA-256(shared + room)│
+  │                               │
+  │  msg1 cifrado con key0 ────►  │
+  │                         key1 = SHA-256(key0 + ':jam-ratchet')
+  │  ◄─── msg2 cifrado con key1  │
+  │                         key2 = SHA-256(key1 + ':jam-ratchet')
+```
+
+Beneficios:
+- **Forward secrecy**: si una clave de sesión se compromete, los mensajes anteriores siguen seguros
+- **Anti-replay**: cada clave se usa una sola vez; reenviar un mensaje interceptado falla al descifrar
+- Activated automáticamente al conectar con un peer. No requiere configuración.
+
+```js
+// Verificar si una conexión usa ratchet:
+const conn = kernel.mesh.connections.get(peerId);
+console.log('Ratchet activo:', !!conn?.ratchetKey);
+```
+
+### Anti-replay (ventana deslizante)
+
+Cada peer mantiene una ventana deslizante de 64 números de secuencia. Si un mensaje ya fue recibido o está fuera de la ventana, se descarta automáticamente:
+
+```js
+kernel.events.on('peer:attack_detected', (peerId) => {
+    console.warn(`Posible replay attack desde ${peerId}`);
+});
+```
+
+El umbral de detección se configura en:
+```js
+kernel.mesh.REPLAY_WINDOW_SIZE = 64;  // default
+```
+
+### LAN Discovery
+
+En Node.js, el kernel descubre peers automáticamente en la red local vía UDP broadcast, sin dependencias externas:
+
+```bash
+# Se activa automáticamente al iniciar (solo Node.js)
+node jamkernelp2p.js --room local --password clave
+```
+
+El peer envía un beacon UDP cada 10s con su `peerId` y `signalUrl`. Al recibir un beacon, intenta conectar automáticamente.
+
+**Puerto UDP usado:** 42020 (configurable vía `kernel.mesh._discPort`).
+
+### Heartbeat (keepalive)
+
+El kernel envía un `ping` al servidor de señalización cada 30s para mantener la conexión activa:
+
+```js
+// Configurar intervalo (antes de init):
+kernel.mesh._heartbeatIntervalMs = 30000;  // default: 30s
+```
+
+Si el servidor no responde, el kernel emite:
+```js
+kernel.events.on('signal:connection_lost', () => {
+    console.warn('Conexión con signal server perdida');
+});
+```
+
+El heartbeat solo envía `ping` (no datos cifrados vacíos como en v1.0), evitando falsos positivos de rate limiting.
 
 ### ACKs de entrega de mensajes
 
