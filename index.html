@@ -428,11 +428,13 @@
                     <span class="tag">JavaScript</span>
                     <span class="tag">0 deps</span>
                 </div>
-                <p>El microkernel P2P actual. Un solo archivo (~2.200 líneas), cero dependencias, WebSocket RFC 6455 propio, comunicación cifrada con identidad criptográfica.</p>
+                <p>El microkernel P2P actual. Un solo archivo (~2.900 líneas), cero dependencias, WebSocket RFC 6455 propio, comunicación cifrada con identidad criptográfica.</p>
                 <ul>
                     <li>✅ 1 archivo · 0 dependencias · 4 plataformas</li>
                     <li>✅ WebSocket RFC 6455 propio (framing + handshake)</li>
-                    <li>✅ ECDSA P-256 + AES‑256‑GCM + PBKDF2(60K)</li>
+                    <li>✅ ECDSA P-256 + AES‑256‑GCM + PBKDF2(600K)</li>
+                    <li>✅ Forward secrecy (ECDH + ratchet) · Anti-replay</li>
+                    <li>✅ LAN Discovery (UDP, 0 deps) · Heartbeat</li>
                     <li>✅ MiniSignalServer embebido · Mesh con ACKs</li>
                     <li>✅ CLI completo · Plugins · TLS nativo (WSS)</li>
                 </ul>
@@ -478,9 +480,10 @@
                 <h3>🔐 Cifrado Militar</h3>
                 <ul>
                     <li>AES‑256‑GCM con autenticación</li>
-                    <li>Derivación PBKDF2 (60.000 iteraciones)</li>
+                    <li>Derivación PBKDF2 (600.000 iteraciones)</li>
                     <li>Sal dinámica por sala</li>
                     <li>Identidad ECDSA P‑256 nativa</li>
+                    <li>Forward secrecy con ECDH + ratchet por mensaje</li>
                 </ul>
             </div>
             <div class="card">
@@ -522,6 +525,8 @@
                 <ul>
                     <li>WebRTC browser-to-browser + WebSocket relay en Node.js</li>
                     <li>ACKs automáticos con reintentos (hasta 2)</li>
+                    <li>LAN Discovery vía UDP broadcast (Node.js, 0 deps)</li>
+                    <li>Heartbeat keepalive (30s) + anti-replay (ventana 64)</li>
                     <li>Blacklist de peers maliciosos automática</li>
                     <li>Detección de ataques anti-DoS</li>
                 </ul>
@@ -567,6 +572,49 @@
                 sigue desarrollando el proyecto con la misma pasión que lo inició,
                 asegurando que jamkernelp2p sea siempre <strong>más ligero, más seguro y más potente</strong>.
             </p>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 4.5. VERSIONES DISPONIBLES                                 -->
+    <!-- ============================================================ -->
+    <section class="section">
+        <h2>📦 Versiones Disponibles</h2>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Versión</th>
+                        <th>Archivo</th>
+                        <th>Tamaño</th>
+                        <th>Descripción</th>
+                        <th>Descarga</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>v1.0</strong></td>
+                        <td><code>jamkernelp2p-v1.0.js</code></td>
+                        <td>84 KB</td>
+                        <td>Kernel original: AES-256 + ECDSA + WebSocket propio + mesh básico</td>
+                        <td><a href="https://raw.githubusercontent.com/jamkernel/jamkernelp2p/main/jamkernelp2p-v1.0.js" target="_blank">⬇ Descargar</a></td>
+                    </tr>
+                    <tr>
+                        <td><strong style="color:#6fc3ff;">v1.2.0</strong></td>
+                        <td><code>jamkernelp2p.js</code></td>
+                        <td>115 KB</td>
+                        <td>Kernel actual: + ECDH + ratchet + LAN discovery + heartbeat + anti-replay + 19 bugs corregidos</td>
+                        <td><a href="https://raw.githubusercontent.com/jamkernel/jamkernelp2p/main/jamkernelp2p.js" target="_blank">⬇ Descargar</a></td>
+                    </tr>
+                    <tr>
+                        <td><strong style="color:#f0b34b;">v2.1.0</strong></td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td>Próximo: token auth, cluster mode real, canales virtuales, purga forense mejorada</td>
+                        <td><span style="color:#6a7a90;">🔜 Próximamente</span></td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </section>
 
@@ -629,6 +677,34 @@
                         <td>Identidad ECDSA nativa</td>
                         <td class="check">✅</td>
                         <td class="cross">⚠️ Opcional</td>
+                        <td class="cross">❌</td>
+                        <td class="cross">❌</td>
+                    </tr>
+                    <tr>
+                        <td>Forward secrecy (ECDH + ratchet)</td>
+                        <td class="check">✅</td>
+                        <td class="cross">⚠️ Opcional</td>
+                        <td class="cross">❌</td>
+                        <td class="cross">❌</td>
+                    </tr>
+                    <tr>
+                        <td>LAN Discovery (UDP)</td>
+                        <td class="check">✅</td>
+                        <td class="cross">❌</td>
+                        <td class="cross">❌</td>
+                        <td class="cross">❌</td>
+                    </tr>
+                    <tr>
+                        <td>Anti-replay (ventana deslizante)</td>
+                        <td class="check">✅</td>
+                        <td class="cross">❌</td>
+                        <td class="cross">❌</td>
+                        <td class="cross">❌</td>
+                    </tr>
+                    <tr>
+                        <td>Heartbeat / keepalive</td>
+                        <td class="check">✅</td>
+                        <td class="cross">❌</td>
                         <td class="cross">❌</td>
                         <td class="cross">❌</td>
                     </tr>
@@ -700,7 +776,9 @@
                 <div class="version">✅ v1.2.0</div>
                 <div class="desc">
                     <strong>Microkernel P2P — Lanzado</strong><br />
-                    WebSocket RFC 6455 propio · ECDSA P-256 · AES‑256‑GCM · PBKDF2(60K) ·
+                    WebSocket RFC 6455 propio · ECDSA P-256 · AES‑256‑GCM · PBKDF2(600K) ·
+                    Forward secrecy (ECDH + ratchet) · Anti-replay ·
+                    LAN Discovery (UDP) · Heartbeat keepalive ·
                     MiniSignalServer embebido · Mesh con ACKs · Anti-DoS (60 msg/s) ·
                     Purga forense · CLI completo · Plugins · TLS nativo (WSS) ·
                     Logging · WorkerPool · 4 plataformas ·
@@ -725,8 +803,7 @@
                 <div class="desc">
                     <strong>Motor Híbrido Node.js + Rust</strong><br />
                     WebSocket nativo en Rust para alto rendimiento · NAT traversal (STUN/TURN) ·
-                    DHT ligero para descubrimiento · Forward secrecy con claves efímeras ·
-                    Benchmarks 100.000 msg/s
+                    DHT ligero para descubrimiento · Benchmarks 100.000 msg/s
                 </div>
             </div>
 
